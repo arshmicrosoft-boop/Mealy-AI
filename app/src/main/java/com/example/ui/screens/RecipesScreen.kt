@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Recipe
 import com.example.data.model.SubstitutionAdvice
+import com.example.ui.components.LoadingScreen
 import com.example.ui.components.MatchPercentBadge
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
@@ -36,6 +37,7 @@ fun RecipesScreen(
     val recipes by viewModel.allRecipes.collectAsState()
     val selectedRecipe by viewModel.selectedRecipe.collectAsState()
     val cuisineFilter by viewModel.recipeCuisineFilter.collectAsState()
+    val isGeneratingRecipes by viewModel.isGeneratingRecipes.collectAsState()
 
     val cuisineOptions = listOf("All", "Mediterranean", "Asian / Stir-Fry", "Quick (<20m)", "High Protein")
 
@@ -49,7 +51,19 @@ fun RecipesScreen(
         }
     }
 
-    if (selectedRecipe != null) {
+    if (isGeneratingRecipes) {
+        LoadingScreen(
+            modifier = modifier,
+            title = "Chef AI is Cooking Up Recipes...",
+            subtitle = "Crafting zero-waste, personalized recipes with your ingredients",
+            stepMessages = listOf(
+                "Analyzing pantry and fresh produce...",
+                "Prioritizing expiring items to minimize food waste...",
+                "Matching dietary habits and flavor profiles...",
+                "Assembling precise ingredient ratios & steps..."
+            )
+        )
+    } else if (selectedRecipe != null) {
         RecipeDetailView(
             recipe = selectedRecipe!!,
             onBack = { viewModel.clearSelectedRecipe() },
@@ -69,17 +83,42 @@ fun RecipesScreen(
         ) {
             // 1. Header
             item {
-                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                    Text(
-                        text = "Adaptive Recipes",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = "Matched dynamically against your ingredients, expiring food & preferences",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Adaptive Recipes",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                         )
-                    )
+                        Text(
+                            text = "Matched dynamically against your ingredients & preferences",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
+                    FilledTonalButton(
+                        onClick = { viewModel.generateAiRecipes() },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = SageContainer,
+                            contentColor = SageGreenPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.testTag("generate_recipes_ai_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "AI Generate",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("AI Generate", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    }
                 }
             }
 

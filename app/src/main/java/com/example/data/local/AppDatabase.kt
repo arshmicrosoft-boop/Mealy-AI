@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 @Database(
     entities = [
         InventoryItem::class,
+        Ingredient::class,
         Recipe::class,
         UserPreferences::class,
         CookingSession::class,
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun inventoryDao(): InventoryDao
+    abstract fun ingredientDao(): IngredientDao
     abstract fun recipeDao(): RecipeDao
     abstract fun preferencesDao(): PreferencesDao
     abstract fun cookingSessionDao(): CookingSessionDao

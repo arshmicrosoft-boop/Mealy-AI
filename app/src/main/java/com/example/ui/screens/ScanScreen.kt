@@ -350,19 +350,41 @@ fun ScanScreen(
             // 5. Detected Items List
             if (isScanning) {
                 item {
-                    Box(
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(vertical = 12.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = SageGreenPrimary)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Mealy Vision is recognizing ingredients...",
-                                style = MaterialTheme.typography.bodyMedium
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = SageGreenPrimary,
+                                strokeWidth = 3.dp
                             )
+                            Column {
+                                Text(
+                                    text = "Analyzing Fridge Items...",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "Vision AI is detecting produce, proteins & expiration dates",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
                         }
                     }
                 }

@@ -69,3 +69,30 @@ interface KitchenMemoryDao {
     @Delete
     suspend fun deleteMemory(memory: KitchenMemoryLog)
 }
+
+@Dao
+interface IngredientDao {
+    @Query("SELECT * FROM ingredients ORDER BY name ASC")
+    fun getAllIngredients(): Flow<List<Ingredient>>
+
+    @Query("SELECT * FROM ingredients WHERE id = :id")
+    suspend fun getIngredientById(id: Long): Ingredient?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(ingredient: Ingredient): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(ingredients: List<Ingredient>)
+
+    @Update
+    suspend fun update(ingredient: Ingredient)
+
+    @Delete
+    suspend fun delete(ingredient: Ingredient)
+
+    @Query("DELETE FROM ingredients WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM ingredients")
+    suspend fun clearAll()
+}

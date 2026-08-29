@@ -102,6 +102,9 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     private val _isChatGenerating = MutableStateFlow(false)
     val isChatGenerating: StateFlow<Boolean> = _isChatGenerating.asStateFlow()
 
+    private val _isGeneratingRecipes = MutableStateFlow(false)
+    val isGeneratingRecipes: StateFlow<Boolean> = _isGeneratingRecipes.asStateFlow()
+
     // Inventory Filter
     private val _inventoryFilter = MutableStateFlow("All")
     val inventoryFilter: StateFlow<String> = _inventoryFilter.asStateFlow()
@@ -225,6 +228,19 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // --- Recipe Details & Cooking Companion ---
+    fun generateAiRecipes(customQuery: String? = null) {
+        viewModelScope.launch {
+            _isGeneratingRecipes.value = true
+            try {
+                repository.getAdaptiveRecipes(customQuery)
+            } catch (e: Exception) {
+                // Handled gracefully in repository fallback
+            } finally {
+                _isGeneratingRecipes.value = false
+            }
+        }
+    }
+
     fun viewRecipeDetails(recipe: Recipe) {
         _selectedRecipe.value = recipe
     }

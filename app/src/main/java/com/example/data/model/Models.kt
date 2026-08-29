@@ -65,6 +65,20 @@ data class InventoryItem(
     }
 }
 
+@Entity(tableName = "ingredients")
+@JsonClass(generateAdapter = true)
+data class Ingredient(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val amount: String = "1",
+    val unit: String = "pcs",
+    val category: IngredientCategory = IngredientCategory.OTHER,
+    val state: FoodState = FoodState.STORED,
+    val expiryTimestamp: Long = System.currentTimeMillis() + 86400000L * 7,
+    val isCrucial: Boolean = true,
+    val substitutionNote: String? = null
+)
+
 @JsonClass(generateAdapter = true)
 data class RecipeIngredient(
     val name: String,
