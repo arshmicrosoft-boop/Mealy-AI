@@ -25,6 +25,7 @@ import com.example.data.model.KitchenMemoryLog
 import com.example.data.model.UserPreferences
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
+import com.example.ui.viewmodel.MainTab
 
 @Composable
 fun ProfileAndMemoryScreen(
@@ -50,17 +51,38 @@ fun ProfileAndMemoryScreen(
     ) {
         // 1. Header & User Account Card
         item {
-            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                Text(
-                    text = "Kitchen Intelligence & Profile",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "Your personal chef identity and taste memory",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Kitchen Intelligence & Profile",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                     )
-                )
+                    Text(
+                        text = "Your personal chef identity and taste memory",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+                IconButton(
+                    onClick = { viewModel.selectTab(MainTab.SETTINGS) },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(SageContainer)
+                        .testTag("open_settings_header_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Dietary Settings",
+                        tint = SageGreenPrimary
+                    )
+                }
             }
         }
 
@@ -257,18 +279,132 @@ fun ProfileAndMemoryScreen(
         // 3. Preferences Configuration Section
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                Text(
-                    text = "Taste & Cooking Preferences",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                )
-                Text(
-                    text = "Fine-tune Mealy's recipe generation parameters",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Taste & Cooking Preferences",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Toggles that directly inform Gemini AI recipe generation",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+                TextButton(
+                    onClick = { viewModel.selectTab(MainTab.SETTINGS) },
+                    modifier = Modifier.testTag("manage_all_settings_button")
+                ) {
+                    Text("All Settings", color = SageGreenPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Dietary Preference Toggles Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .testTag("profile_dietary_toggles_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Eco,
+                            contentDescription = null,
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Dietary Requirements & Toggles",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Vegan Switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updatePreferences(preferences.copy(isVegan = !preferences.isVegan)) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🌱 Vegan", fontWeight = FontWeight.Bold)
+                            Text("100% plant-based, no meat or dairy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = preferences.isVegan,
+                            onCheckedChange = { viewModel.updatePreferences(preferences.copy(isVegan = it)) },
+                            modifier = Modifier.testTag("profile_switch_vegan"),
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SageGreenPrimary)
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    // Gluten-Free Switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updatePreferences(preferences.copy(isGlutenFree = !preferences.isGlutenFree)) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🌾 Gluten-Free", fontWeight = FontWeight.Bold)
+                            Text("Excludes wheat, barley, and rye", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = preferences.isGlutenFree,
+                            onCheckedChange = { viewModel.updatePreferences(preferences.copy(isGlutenFree = it)) },
+                            modifier = Modifier.testTag("profile_switch_gluten_free"),
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SageGreenPrimary)
+                        )
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    // Spicy Switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updatePreferences(preferences.copy(isSpicy = !preferences.isSpicy)) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🌶️ Spicy", fontWeight = FontWeight.Bold)
+                            Text("Include chili, hot peppers & warming spices", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = preferences.isSpicy,
+                            onCheckedChange = { viewModel.updatePreferences(preferences.copy(isSpicy = it)) },
+                            modifier = Modifier.testTag("profile_switch_spicy"),
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SageGreenPrimary)
+                        )
+                    }
+                }
             }
         }
 

@@ -178,11 +178,24 @@ class LocalRuleBasedAIProvider : AIProvider {
         if (context.preferences.favoriteCuisines.any { it.contains(cuisine, ignoreCase = true) }) {
             prefScore += 10f
         }
+        if (context.preferences.isVegan && (dietary.contains("Vegan") || dietary.contains("Vegetarian"))) {
+            prefScore += 8f
+        } else if (context.preferences.isVegan && !dietary.contains("Vegan") && !dietary.contains("Vegetarian")) {
+            prefScore -= 12f
+        }
+        if (context.preferences.isGlutenFree && dietary.contains("Gluten-Free")) {
+            prefScore += 6f
+        }
+        if (context.preferences.isSpicy && spice >= 2) {
+            prefScore += 5f
+        } else if (!context.preferences.isSpicy && spice > 1) {
+            prefScore -= 6f
+        }
         if (context.preferences.dietaryGoal.contains("Protein", ignoreCase = true) && protein >= 25) {
             prefScore = (prefScore + 5f).coerceAtMost(25f)
-        } else if (context.preferences.dietaryGoal.contains("Keto", ignoreCase = true) && carbs <= 15) {
+        } else if ((context.preferences.dietaryGoal.contains("Keto", ignoreCase = true) || context.preferences.isKeto) && carbs <= 15) {
             prefScore = (prefScore + 5f).coerceAtMost(25f)
-        } else if (context.preferences.dietaryGoal.contains("Plant", ignoreCase = true) && dietary.contains("Vegetarian")) {
+        } else if (context.preferences.dietaryGoal.contains("Plant", ignoreCase = true) && (dietary.contains("Vegetarian") || dietary.contains("Vegan"))) {
             prefScore = (prefScore + 5f).coerceAtMost(25f)
         }
 

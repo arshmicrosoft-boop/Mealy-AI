@@ -66,6 +66,7 @@ fun MealyApp(viewModel: KitchenViewModel) {
                 MainTab.COOKING -> Screen.Cooking.route
                 MainTab.ASK_MEALY -> Screen.AskMealy.route
                 MainTab.PROFILE -> Screen.Profile.route
+                MainTab.SETTINGS -> Screen.Settings.route
             }
             if (currentDestination != targetRoute) {
                 navController.navigate(targetRoute) {

@@ -23,7 +23,8 @@ enum class MainTab {
     RECIPES,
     COOKING,
     ASK_MEALY,
-    PROFILE
+    PROFILE,
+    SETTINGS
 }
 
 data class TimerState(
@@ -439,6 +440,25 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     fun deleteInventoryItem(id: Long) {
         viewModelScope.launch {
             repository.deleteInventoryItem(id)
+        }
+    }
+
+    fun loadStarterPantry() {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val dayMs = 24 * 60 * 60 * 1000L
+            val starterItems = listOf(
+                InventoryItem(name = "Organic Whole Milk", category = IngredientCategory.DAIRY_EGGS, quantity = 1.0, unit = "gallon", state = FoodState.STORED, expiryTimestamp = now + (3 * dayMs), location = "Fridge", notes = "Fresh dairy", estimatedPriceDollars = 4.29),
+                InventoryItem(name = "Baby Spinach", category = IngredientCategory.PRODUCE, quantity = 1.0, unit = "box", state = FoodState.STORED, expiryTimestamp = now + (2 * dayMs), location = "Fridge", notes = "Expiring soon", estimatedPriceDollars = 3.99),
+                InventoryItem(name = "Free-Range Large Eggs", category = IngredientCategory.DAIRY_EGGS, quantity = 12.0, unit = "count", state = FoodState.STORED, expiryTimestamp = now + (8 * dayMs), location = "Fridge", notes = "Fresh", estimatedPriceDollars = 4.50),
+                InventoryItem(name = "Boneless Chicken Breast", category = IngredientCategory.MEAT_SEAFOOD, quantity = 1.5, unit = "lbs", state = FoodState.STORED, expiryTimestamp = now + (2 * dayMs), location = "Fridge", notes = "Use soon", estimatedPriceDollars = 8.50),
+                InventoryItem(name = "Jasmine Rice", category = IngredientCategory.PANTRY_GRAINS, quantity = 2.0, unit = "lbs", state = FoodState.STORED, expiryTimestamp = now + (90 * dayMs), location = "Pantry", notes = "Staple grain", estimatedPriceDollars = 3.20),
+                InventoryItem(name = "Extra Virgin Olive Oil", category = IngredientCategory.CONDIMENTS_SPICES, quantity = 1.0, unit = "bottle", state = FoodState.STORED, expiryTimestamp = now + (180 * dayMs), location = "Pantry", notes = "Cooking base", estimatedPriceDollars = 9.99),
+                InventoryItem(name = "Roma Tomatoes", category = IngredientCategory.PRODUCE, quantity = 4.0, unit = "count", state = FoodState.STORED, expiryTimestamp = now + (4 * dayMs), location = "Fridge", notes = "Fresh", estimatedPriceDollars = 2.80),
+                InventoryItem(name = "Fresh Garlic", category = IngredientCategory.PRODUCE, quantity = 1.0, unit = "bulb", state = FoodState.STORED, expiryTimestamp = now + (20 * dayMs), location = "Pantry", notes = "Aromatic", estimatedPriceDollars = 0.99)
+            )
+            repository.addInventoryItems(starterItems)
+            refreshAutonomousMealPlan()
         }
     }
 

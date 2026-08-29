@@ -109,14 +109,25 @@ open class GeminiAIProvider(
             try {
                 val inventoryText = context.inventory.joinToString(", ") { "${it.name} (state: ${it.state.label}, expires in ${it.daysUntilExpiry()}d)" }
                 val expiringText = context.expiringItems.joinToString(", ") { it.name }
+                val dietaryConstraints = buildList {
+                    if (context.preferences.isVegan) add("STRICTLY VEGAN (100% plant-based, no meat, poultry, fish, dairy, eggs, honey)")
+                    if (context.preferences.isGlutenFree) add("STRICTLY GLUTEN-FREE (no wheat, gluten, barley, rye)")
+                    if (context.preferences.isDairyFree) add("DAIRY-FREE (no milk, butter, cheese, cream, yogurt)")
+                    if (context.preferences.isKeto) add("KETO / ULTRA LOW-CARB (<15g net carbs per serving)")
+                    if (context.preferences.isVegetarian && !context.preferences.isVegan) add("VEGETARIAN (no meat/poultry/fish, eggs/dairy allowed)")
+                    if (context.preferences.isSpicy) add("SPICY / HEAT-FORWARD: Infuse bold warmth with chili, peppers, or spices (${context.preferences.spicePreference})")
+                    else add("MILD / NON-SPICY: Minimal to no heat")
+                }.joinToString("; ")
+
                 val prompt = """
                     You are Mealio AI Kitchen Intelligence.
                     Inventory: $inventoryText
                     Expiring soon items (MUST PRIORITIZE): $expiringText
+                    Dietary Requirements & Toggles: $dietaryConstraints
                     User Preferences: Cuisines: ${context.preferences.favoriteCuisines.joinToString()}, Spice: ${context.preferences.spicePreference}, Goal: ${context.preferences.dietaryGoal}, Max Time: ${context.preferences.maxCookingTimeMin} mins, Disliked: ${context.preferences.dislikedIngredients.joinToString()}
                     Query: ${customQuery ?: "What can I cook right now?"}
                     
-                    Generate 2 personalized adaptive recipes in JSON format.
+                    Generate 2 personalized adaptive recipes adhering strictly to the dietary requirements and inventory.
                     Use our base ranking weights (Ingredient match 35%, Preference match 25%, Time 20%, Waste reduction 15%, Variety 5%).
                     Explain substitutions if an ingredient isn't available.
                 """.trimIndent()
@@ -171,12 +182,21 @@ open class GeminiAIProvider(
                 val invSummary = context.inventory.joinToString(", ") { "${it.name} (${it.daysUntilExpiry()}d left)" }
                 val expiring = context.expiringItems.joinToString(", ") { it.name }
 
+                val dietaryConstraints = buildList {
+                    if (context.preferences.isVegan) add("Vegan")
+                    if (context.preferences.isGlutenFree) add("Gluten-Free")
+                    if (context.preferences.isDairyFree) add("Dairy-Free")
+                    if (context.preferences.isKeto) add("Keto")
+                    if (context.preferences.isVegetarian) add("Vegetarian")
+                    if (context.preferences.isSpicy) add("Spicy (${context.preferences.spicePreference})") else add("Mild")
+                }.joinToString(", ")
+
                 val prompt = """
                     You are Mealio, an autonomous AI kitchen companion, personal chef, and food inventory & waste intelligence expert.
                     Current User Kitchen Context:
                     - Current Inventory: $invSummary
                     - Expiring Soon Items: $expiring
-                    - Dietary Goals: ${context.preferences.dietaryGoal}
+                    - Dietary Goals & Toggles: ${context.preferences.dietaryGoal} ($dietaryConstraints)
                     - Spice Preference: ${context.preferences.spicePreference}
                     - Active Recipe: ${context.activeRecipe?.title ?: "None"}
                     - Active Step: ${context.activeStep?.title ?: "None"}

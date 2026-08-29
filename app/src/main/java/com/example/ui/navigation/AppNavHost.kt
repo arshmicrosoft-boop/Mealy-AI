@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.ui.screens.*
 import com.example.ui.viewmodel.KitchenViewModel
+import com.example.ui.viewmodel.MainTab
 
 /**
  * Jetpack Navigation NavHost providing explicit entry points for:
@@ -49,6 +50,12 @@ fun AppNavHost(
         }
         composable(Screen.Profile.route) {
             ProfileAndMemoryScreen(viewModel = viewModel)
+        }
+        composable(Screen.Settings.route) {
+            ProfileSettingsScreen(
+                viewModel = viewModel,
+                onNavigateBack = { viewModel.selectTab(MainTab.PROFILE) }
+            )
         }
     }
 }

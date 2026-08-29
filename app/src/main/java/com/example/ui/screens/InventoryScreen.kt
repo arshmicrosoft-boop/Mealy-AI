@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -187,33 +188,56 @@ fun InventoryScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // 3. Inventory Items List
-            if (filteredItems.isEmpty()) {
+            // 3. Inventory Items List or Empty State
+            if (items.isEmpty()) {
                 item {
-                    Box(
+                    InventoryEmptyState(
+                        onScanClick = { viewModel.selectTab(MainTab.SCAN) },
+                        onAddManualClick = { showAddDialog = true },
+                        onLoadStarterPantry = { viewModel.loadStarterPantry() }
+                    )
+                }
+            } else if (filteredItems.isEmpty()) {
+                item {
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(48.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(horizontal = 16.dp, vertical = 24.dp)
+                            .testTag("filter_empty_state"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Kitchen,
+                                imageVector = Icons.Default.FilterListOff,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(40.dp)
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "No items found in this view",
+                                text = "No items matching \"$filter\"",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Scan your fridge or tap '+' to add items",
+                                text = "Try changing the filter or clearing it to see all ${items.size} tracked items.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            FilledTonalButton(
+                                onClick = { viewModel.setInventoryFilter("All") },
+                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = SageContainer)
+                            ) {
+                                Text("Show All Items", color = OnSageContainer, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -458,3 +482,201 @@ fun AddInventoryDialog(
         }
     )
 }
+
+@Composable
+fun InventoryEmptyState(
+    onScanClick: () -> Unit,
+    onAddManualClick: () -> Unit,
+    onLoadStarterPantry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag("inventory_empty_state"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Scanner Visual Badge
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(SageContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.QrCodeScanner,
+                    contentDescription = "Scan to get started",
+                    tint = SageGreenPrimary,
+                    modifier = Modifier.size(42.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Text(
+                text = "Your Kitchen Inventory is Empty",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Mealio tracks shelf life, predicts food waste, and calculates real-time recipe matches based on what's in your fridge and pantry.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                ),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Primary CTA: Scan Items
+            Button(
+                onClick = onScanClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("scan_to_get_started_button"),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoCamera,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Scan Items with Smart Vision",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Secondary Action Row: Manual Add & Demo Pantry
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onAddManualClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .testTag("add_item_manual_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Add Manually", style = MaterialTheme.typography.labelLarge)
+                }
+
+                FilledTonalButton(
+                    onClick = onLoadStarterPantry,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .testTag("load_starter_pantry_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(containerColor = SageContainer)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Kitchen,
+                        contentDescription = null,
+                        tint = OnSageContainer,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Demo Pantry", color = OnSageContainer, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Value Props
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ValuePropositionRow(
+                    icon = Icons.Default.QrCodeScanner,
+                    title = "Instant Camera Detection",
+                    subtitle = "Snap a photo of your shelves or receipt for fast stocking."
+                )
+                ValuePropositionRow(
+                    icon = Icons.Default.Timer,
+                    title = "Dynamic Expiry Intelligence",
+                    subtitle = "Get alerted before ingredients spoil to cut grocery waste."
+                )
+                ValuePropositionRow(
+                    icon = Icons.Default.AutoAwesome,
+                    title = "Personalized Gemini AI Recipes",
+                    subtitle = "Generate customized dishes matching your active pantry stock."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ValuePropositionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SageContainer.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = SageGreenPrimary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            )
+        }
+    }
+}
+

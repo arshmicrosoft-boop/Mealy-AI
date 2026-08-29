@@ -20,6 +20,7 @@ sealed class Screen(
     object Cooking : Screen("cooking", "Cooking", Icons.Default.OutdoorGrill, "nav_cooking")
     object AskMealy : Screen("ask_mealy", "Ask AI", Icons.Default.AutoAwesome, "nav_ask")
     object Profile : Screen("profile", "Memory", Icons.Default.Psychology, "nav_profile")
+    object Settings : Screen("settings", "Settings", Icons.Default.Tune, "nav_settings")
 
     companion object {
         val bottomNavItems = listOf(

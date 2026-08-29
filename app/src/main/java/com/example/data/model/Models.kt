@@ -142,9 +142,15 @@ data class UserPreferences(
     @PrimaryKey val id: Int = 1,
     val favoriteCuisines: List<String> = listOf("Italian", "Asian / Stir-Fry", "Mexican", "Mediterranean"),
     val spicePreference: String = "Medium", // Mild, Medium, Spicy, Extra Hot
+    val isSpicy: Boolean = true,
+    val isVegan: Boolean = false,
+    val isGlutenFree: Boolean = false,
+    val isDairyFree: Boolean = false,
+    val isKeto: Boolean = false,
+    val isVegetarian: Boolean = false,
     val dislikedIngredients: List<String> = listOf("Cilantro"),
     val allergies: List<String> = emptyList(),
-    val dietaryGoal: String = "High Protein & Balanced", // High Protein, Low Carb, Keto, Balanced, Plant-Forward
+    val dietaryGoal: String = "High Protein & Balanced", // High Protein, Low Carb, Keto, Balanced, Plant-Forward, Vegan, Gluten-Free
     val maxCookingTimeMin: Int = 35,
     val cookingSkill: String = "Intermediate", // Beginner, Intermediate, Seasoned
     val mealHabit: String = "Quick Weekday Meals",
