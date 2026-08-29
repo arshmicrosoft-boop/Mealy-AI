@@ -19,6 +19,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.navigation.AppNavHost
 import com.example.ui.navigation.Screen
+import com.example.ui.screens.AuthScreen
 import com.example.ui.theme.MealyTheme
 import com.example.ui.theme.SageContainer
 import com.example.ui.theme.SageGreenPrimary
@@ -42,6 +43,13 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MealyApp(viewModel: KitchenViewModel) {
+    val userProfile by viewModel.userProfile.collectAsState()
+
+    if (!userProfile.isSignedIn) {
+        AuthScreen(viewModel = viewModel)
+        return
+    }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination?.route ?: Screen.Home.route

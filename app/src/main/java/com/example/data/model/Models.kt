@@ -221,3 +221,14 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val suggestedActions: List<String> = emptyList()
 )
+
+@JsonClass(generateAdapter = true)
+data class UserProfile(
+    val uid: String = "",
+    val displayName: String = "Chef Guest",
+    val email: String = "",
+    val photoUrl: String? = null,
+    val isSignedIn: Boolean = false,
+    val isAnonymous: Boolean = false
+)
+

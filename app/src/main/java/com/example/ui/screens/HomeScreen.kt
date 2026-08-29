@@ -50,6 +50,7 @@ fun HomeScreen(
     val mealPlan by viewModel.autonomousMealPlan.collectAsState()
     val isPlanningMeals by viewModel.isPlanningMeals.collectAsState()
 
+    val userProfile by viewModel.userProfile.collectAsState()
     val expiringItems = inventory.filter { it.isExpiringSoon() }
     val totalEstimatedValue = inventory.sumOf { it.estimatedPriceDollars }
 
@@ -158,7 +159,7 @@ fun HomeScreen(
 
                     Column(modifier = Modifier.padding(bottom = 6.dp)) {
                         Text(
-                            text = "What would you like to cook today?",
+                            text = if (userProfile.displayName.isNotBlank()) "Hi ${userProfile.displayName}, what would you like to cook?" else "What would you like to cook today?",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold

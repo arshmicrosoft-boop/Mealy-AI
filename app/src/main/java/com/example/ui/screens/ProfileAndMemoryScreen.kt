@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ fun ProfileAndMemoryScreen(
     viewModel: KitchenViewModel,
     modifier: Modifier = Modifier
 ) {
+    val userProfile by viewModel.userProfile.collectAsState()
     val preferences by viewModel.userPreferences.collectAsState()
     val memories by viewModel.kitchenMemories.collectAsState()
     val cookingSessions by viewModel.cookingSessions.collectAsState()
@@ -46,19 +48,115 @@ fun ProfileAndMemoryScreen(
             .testTag("profile_memory_screen"),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
-        // 1. Header
+        // 1. Header & User Account Card
         item {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 Text(
-                    text = "Kitchen Intelligence & Memory",
+                    text = "Kitchen Intelligence & Profile",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Your personal chef profile that learns your taste with every meal",
+                    text = "Your personal chef identity and taste memory",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
+            }
+        }
+
+        // User Account Status Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = SageGreenPrimary,
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (!userProfile.photoUrl.isNullOrBlank()) {
+                                    coil.compose.AsyncImage(
+                                        model = userProfile.photoUrl,
+                                        contentDescription = "User Avatar",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Text(
+                                        text = userProfile.displayName.take(1).uppercase(),
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = userProfile.displayName,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                if (!userProfile.isAnonymous) {
+                                    Surface(
+                                        color = SageContainer,
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "GOOGLE",
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = SageGreenPrimary
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = if (userProfile.email.isNotBlank()) userProfile.email else "Guest Kitchen Mode",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { viewModel.signOut() },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Sign Out",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Sign Out", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
 

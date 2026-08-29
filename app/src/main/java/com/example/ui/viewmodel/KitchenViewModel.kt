@@ -1,8 +1,10 @@
 package com.example.ui.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.auth.AuthManager
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
 import com.example.data.repository.KitchenRepository
@@ -37,6 +39,26 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     val repository = KitchenRepository(database)
     val ttsHelper = TextToSpeechHelper(application)
     val speechHelper = SpeechRecognitionHelper(application)
+    val authManager = AuthManager(application)
+
+    // Auth State
+    val userProfile: StateFlow<UserProfile> = authManager.userProfile
+    val isAuthenticating: StateFlow<Boolean> = authManager.isAuthenticating
+    val authStateMessage: StateFlow<String?> = authManager.authStateMessage
+
+    fun signInWithGoogle(activity: Activity) {
+        viewModelScope.launch {
+            authManager.signInWithGoogle(activity)
+        }
+    }
+
+    fun continueAsGuest(customName: String = "Chef Gourmet") {
+        authManager.continueAsGuest(customName)
+    }
+
+    fun signOut() {
+        authManager.signOut()
+    }
 
     // Speech & Interactive Voice State
     val speechState: StateFlow<SpeechState> = speechHelper.state
