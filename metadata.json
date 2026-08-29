@@ -1,0 +1,6 @@
+{
+  "name": "Mealy AI",
+  "description": "AI kitchen companion: scan your fridge, track food inventory & waste, discover adaptive recipes, and cook with smart hands-free step guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,433 @@
+package com.example.ui.viewmodel
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.data.local.AppDatabase
+import com.example.data.model.*
+import com.example.data.repository.KitchenRepository
+import com.example.util.TextToSpeechHelper
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+
+enum class MainTab {
+    HOME,
+    SCAN,
+    INVENTORY,
+    RECIPES,
+    COOKING,
+    ASK_MEALY,
+    PROFILE
+}
+
+data class TimerState(
+    val totalSeconds: Int = 0,
+    val remainingSeconds: Int = 0,
+    val isRunning: Boolean = false,
+    val isFinished: Boolean = false
+)
+
+class KitchenViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val database = AppDatabase.getDatabase(application, viewModelScope)
+    val repository = KitchenRepository(database)
+    val ttsHelper = TextToSpeechHelper(application)
+
+    // Current Tab
+    private val _currentTab = MutableStateFlow(MainTab.HOME)
+    val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
+
+    // Inventory & Data Flows
+    val activeInventory: StateFlow<List<InventoryItem>> = repository.activeInventory
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allRecipes: StateFlow<List<Recipe>> = repository.allRecipes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val userPreferences: StateFlow<UserPreferences> = repository.userPreferences
+        .map { it ?: UserPreferences() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferences())
+
+    val cookingSessions: StateFlow<List<CookingSession>> = repository.cookingSessions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val kitchenMemories: StateFlow<List<KitchenMemoryLog>> = repository.kitchenMemories
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Selected Recipe Detail
+    private val _selectedRecipe = MutableStateFlow<Recipe?>(null)
+    val selectedRecipe: StateFlow<Recipe?> = _selectedRecipe.asStateFlow()
+
+    // Active Cooking Mode Session
+    private val _activeCookingRecipe = MutableStateFlow<Recipe?>(null)
+    val activeCookingRecipe: StateFlow<Recipe?> = _activeCookingRecipe.asStateFlow()
+
+    private val _currentCookingStepIndex = MutableStateFlow(0)
+    val currentCookingStepIndex: StateFlow<Int> = _currentCookingStepIndex.asStateFlow()
+
+    private val _timerState = MutableStateFlow(TimerState())
+    val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
+
+    private var timerJob: Job? = null
+
+    // Scan State
+    private val _scanPreset = MutableStateFlow("Full Fridge Scan")
+    val scanPreset: StateFlow<String> = _scanPreset.asStateFlow()
+
+    private val _detectedFoodItems = MutableStateFlow<List<DetectedFoodItem>>(emptyList())
+    val detectedFoodItems: StateFlow<List<DetectedFoodItem>> = _detectedFoodItems.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    // Ask Mealy Chat State
+    private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
+        listOf(
+            ChatMessage(
+                text = "Welcome to Mealy AI! I've indexed your kitchen ingredients and expiring items. Ask me what to cook, how to adapt a recipe, or culinary food science tips.",
+                isUser = false,
+                suggestedActions = listOf(
+                    "What can I cook right now?",
+                    "How do I substitute butter with ghee?",
+                    "What items are expiring soon?",
+                    "Suggest a 20-min high protein dinner"
+                )
+            )
+        )
+    )
+    val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+
+    private val _isChatGenerating = MutableStateFlow(false)
+    val isChatGenerating: StateFlow<Boolean> = _isChatGenerating.asStateFlow()
+
+    // Inventory Filter
+    private val _inventoryFilter = MutableStateFlow("All")
+    val inventoryFilter: StateFlow<String> = _inventoryFilter.asStateFlow()
+
+    // Recipe Filter
+    private val _recipeCuisineFilter = MutableStateFlow("All")
+    val recipeCuisineFilter: StateFlow<String> = _recipeCuisineFilter.asStateFlow()
+
+    init {
+        // Run initial scan simulation so user sees detected ingredients ready
+        runFridgeScan("Full Fridge Scan")
+    }
+
+    fun selectTab(tab: MainTab) {
+        _currentTab.value = tab
+    }
+
+    fun setInventoryFilter(filter: String) {
+        _inventoryFilter.value = filter
+    }
+
+    fun setRecipeCuisineFilter(cuisine: String) {
+        _recipeCuisineFilter.value = cuisine
+    }
+
+    // --- Vision & Scan Actions ---
+    fun setScanPreset(preset: String) {
+        _scanPreset.value = preset
+        runFridgeScan(preset)
+    }
+
+    fun runFridgeScan(query: String) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            delay(600) // Realistic AI vision processing indicator
+            val items = repository.scanFridgeVision(query)
+            _detectedFoodItems.value = items
+            _isScanning.value = false
+        }
+    }
+
+    fun toggleDetectedItemSelection(index: Int) {
+        val current = _detectedFoodItems.value.toMutableList()
+        if (index in current.indices) {
+            val item = current[index]
+            current[index] = item.copy(isSelected = !item.isSelected)
+            _detectedFoodItems.value = current
+        }
+    }
+
+    fun updateDetectedItemQuantity(index: Int, newQty: Double) {
+        val current = _detectedFoodItems.value.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(suggestedQuantity = newQty.coerceAtLeast(0.5))
+            _detectedFoodItems.value = current
+        }
+    }
+
+    fun confirmDetectedItemsToInventory(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            val selected = _detectedFoodItems.value.filter { it.isSelected }
+            val now = System.currentTimeMillis()
+            val dayMs = 24 * 60 * 60 * 1000L
+
+            val newInventory = selected.map { detected ->
+                InventoryItem(
+                    name = detected.name,
+                    category = detected.category,
+                    quantity = detected.suggestedQuantity,
+                    unit = detected.unit,
+                    state = FoodState.STORED,
+                    expiryTimestamp = now + (detected.estimatedShelfLifeDays * dayMs),
+                    location = if (detected.category == IngredientCategory.PANTRY_GRAINS || detected.category == IngredientCategory.CONDIMENTS_SPICES) "Pantry" else "Fridge",
+                    notes = "Auto-scanned by Mealy Fridge Vision (${(detected.confidence * 100).toInt()}% confidence)",
+                    estimatedPriceDollars = 3.50
+                )
+            }
+            repository.addInventoryItems(newInventory)
+            _detectedFoodItems.value = emptyList()
+            onSuccess()
+        }
+    }
+
+    // --- Inventory Operations ---
+    fun addManualInventoryItem(
+        name: String,
+        category: IngredientCategory,
+        quantity: Double,
+        unit: String,
+        shelfLifeDays: Int,
+        location: String
+    ) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val dayMs = 24 * 60 * 60 * 1000L
+            val item = InventoryItem(
+                name = name.trim(),
+                category = category,
+                quantity = quantity,
+                unit = unit.trim(),
+                state = FoodState.STORED,
+                expiryTimestamp = now + (shelfLifeDays * dayMs),
+                location = location,
+                notes = "Manually added",
+                estimatedPriceDollars = 3.00
+            )
+            repository.addInventoryItem(item)
+        }
+    }
+
+    fun updateItemState(id: Long, newState: FoodState) {
+        viewModelScope.launch {
+            repository.updateItemState(id, newState)
+        }
+    }
+
+    fun deleteInventoryItem(id: Long) {
+        viewModelScope.launch {
+            repository.deleteInventoryItem(id)
+        }
+    }
+
+    // --- Recipe Details & Cooking Companion ---
+    fun viewRecipeDetails(recipe: Recipe) {
+        _selectedRecipe.value = recipe
+    }
+
+    fun clearSelectedRecipe() {
+        _selectedRecipe.value = null
+    }
+
+    fun startCookingSession(recipe: Recipe) {
+        _activeCookingRecipe.value = recipe
+        _currentCookingStepIndex.value = 0
+        _currentTab.value = MainTab.COOKING
+        initStepTimer(recipe.steps.firstOrNull())
+
+        if (userPreferences.value.autoVoiceOnStepChange) {
+            val firstStep = recipe.steps.firstOrNull()
+            if (firstStep != null) {
+                ttsHelper.speak("Starting ${recipe.title}. Step 1: ${firstStep.title}. ${firstStep.instruction}")
+            }
+        }
+    }
+
+    fun nextCookingStep() {
+        val recipe = _activeCookingRecipe.value ?: return
+        val currentIdx = _currentCookingStepIndex.value
+        if (currentIdx < recipe.steps.lastIndex) {
+            val nextIdx = currentIdx + 1
+            _currentCookingStepIndex.value = nextIdx
+            val step = recipe.steps[nextIdx]
+            initStepTimer(step)
+
+            if (userPreferences.value.autoVoiceOnStepChange) {
+                ttsHelper.speak("Step ${step.stepNumber}: ${step.title}. ${step.instruction}")
+            }
+        }
+    }
+
+    fun previousCookingStep() {
+        val currentIdx = _currentCookingStepIndex.value
+        if (currentIdx > 0) {
+            val prevIdx = currentIdx - 1
+            _currentCookingStepIndex.value = prevIdx
+            val recipe = _activeCookingRecipe.value ?: return
+            val step = recipe.steps[prevIdx]
+            initStepTimer(step)
+        }
+    }
+
+    fun speakCurrentStep() {
+        val recipe = _activeCookingRecipe.value ?: return
+        val currentIdx = _currentCookingStepIndex.value
+        val step = recipe.steps.getOrNull(currentIdx) ?: return
+        val tip = if (!step.chefTip.isNullOrBlank()) " Chef tip: ${step.chefTip}" else ""
+        ttsHelper.speak("Step ${step.stepNumber}: ${step.title}. ${step.instruction}$tip")
+    }
+
+    fun stopSpeaking() {
+        ttsHelper.stop()
+    }
+
+    private fun initStepTimer(step: RecipeStep?) {
+        timerJob?.cancel()
+        if (step != null && step.durationMinutes > 0) {
+            val totalSec = step.durationMinutes * 60
+            _timerState.value = TimerState(
+                totalSeconds = totalSec,
+                remainingSeconds = totalSec,
+                isRunning = false,
+                isFinished = false
+            )
+        } else {
+            _timerState.value = TimerState()
+        }
+    }
+
+    fun toggleTimer() {
+        val current = _timerState.value
+        if (current.isRunning) {
+            pauseTimer()
+        } else {
+            startTimer()
+        }
+    }
+
+    private fun startTimer() {
+        val current = _timerState.value
+        if (current.remainingSeconds <= 0) return
+        _timerState.value = current.copy(isRunning = true, isFinished = false)
+
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (_timerState.value.remainingSeconds > 0 && _timerState.value.isRunning) {
+                delay(1000)
+                val remaining = _timerState.value.remainingSeconds - 1
+                if (remaining <= 0) {
+                    _timerState.value = _timerState.value.copy(
+                        remainingSeconds = 0,
+                        isRunning = false,
+                        isFinished = true
+                    )
+                    ttsHelper.speak("Timer completed! Check your food.")
+                    break
+                } else {
+                    _timerState.value = _timerState.value.copy(remainingSeconds = remaining)
+                }
+            }
+        }
+    }
+
+    private fun pauseTimer() {
+        timerJob?.cancel()
+        _timerState.value = _timerState.value.copy(isRunning = false)
+    }
+
+    fun resetTimer() {
+        val current = _timerState.value
+        timerJob?.cancel()
+        _timerState.value = current.copy(
+            remainingSeconds = current.totalSeconds,
+            isRunning = false,
+            isFinished = false
+        )
+    }
+
+    fun finishCookingSession(rating: Int, feedback: String) {
+        val recipe = _activeCookingRecipe.value ?: return
+        viewModelScope.launch {
+            val session = CookingSession(
+                recipeId = recipe.id,
+                recipeTitle = recipe.title,
+                rating = rating,
+                feedbackNote = feedback,
+                substitutionsUsed = recipe.substitutions.map { "${it.originalIngredient} -> ${it.substituteIngredient}" },
+                wasteSavedDollars = (recipe.wasteReductionScore * 0.8)
+            )
+            repository.completeCookingSession(session)
+            ttsHelper.speak("Cooking session finished! Amazing job Chef. Saved to your Kitchen Memory.")
+            _activeCookingRecipe.value = null
+            _currentTab.value = MainTab.HOME
+        }
+    }
+
+    fun exitCookingSession() {
+        timerJob?.cancel()
+        ttsHelper.stop()
+        _activeCookingRecipe.value = null
+        _currentTab.value = MainTab.RECIPES
+    }
+
+    // --- Ask Mealy AI Chat ---
+    fun sendChatMessage(text: String) {
+        if (text.isBlank()) return
+        val userMsg = ChatMessage(text = text.trim(), isUser = true)
+        val current = _chatMessages.value + userMsg
+        _chatMessages.value = current
+        _isChatGenerating.value = true
+
+        viewModelScope.launch {
+            try {
+                val response = repository.chatWithChef(userMsg.text, current)
+                val aiMsg = ChatMessage(
+                    text = response,
+                    isUser = false,
+                    suggestedActions = when {
+                        text.contains("cook", ignoreCase = true) -> listOf("Start Cooking Mode", "Show recipe details", "What else can I make?")
+                        text.contains("substitute", ignoreCase = true) -> listOf("How does this affect cooking time?", "Check other pantry swaps")
+                        else -> listOf("What can I cook?", "Check expiring food", "Help with timers")
+                    }
+                )
+                _chatMessages.value = _chatMessages.value + aiMsg
+            } catch (e: Exception) {
+                val errorMsg = ChatMessage(
+                    text = "I'm always ready to help! Try asking: 'What can I cook with my chicken and spinach?' or 'How do I substitute butter with ghee?'",
+                    isUser = false
+                )
+                _chatMessages.value = _chatMessages.value + errorMsg
+            } finally {
+                _isChatGenerating.value = false
+            }
+        }
+    }
+
+    // --- Profile & Preferences ---
+    fun updatePreferences(prefs: UserPreferences) {
+        viewModelScope.launch {
+            repository.savePreferences(prefs)
+        }
+    }
+
+    fun addKitchenMemory(insight: String, category: String, actionTaken: String) {
+        viewModelScope.launch {
+            val memory = KitchenMemoryLog(
+                category = category,
+                insight = insight,
+                actionTaken = actionTaken
+            )
+            repository.addKitchenMemory(memory)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        ttsHelper.shutdown()
+        timerJob?.cancel()
+    }
+}
