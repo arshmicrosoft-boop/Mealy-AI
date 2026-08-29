@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
         CookingSession::class,
         KitchenMemoryLog::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -43,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mealy_ai_database"
                 )
+                    .fallbackToDestructiveMigration(true)
                     .addCallback(DatabaseCallback(scope))
                     .build()
                 INSTANCE = instance
