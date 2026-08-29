@@ -408,7 +408,7 @@ fun HomeScreen(
             }
         }
 
-        items(recipes.take(3)) { recipe ->
+        items(recipes.take(3), key = { it.id }) { recipe ->
             HomeRecipeCard(
                 recipe = recipe,
                 onSelect = {

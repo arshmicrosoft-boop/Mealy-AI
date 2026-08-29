@@ -18,18 +18,24 @@ import java.util.concurrent.TimeUnit
 class GeminiService(
     private val model: String = "gemini-3.5-flash"
 ) {
-    private val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
+    companion object {
+        private val moshi: Moshi by lazy {
+            Moshi.Builder()
+                .add(KotlinJsonAdapterFactory())
+                .build()
+        }
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
+        private val okHttpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build()
+        }
 
-    private val requestAdapter = moshi.adapter(GeminiGenerateRequest::class.java)
-    private val responseAdapter = moshi.adapter(GeminiGenerateResponse::class.java)
+        private val requestAdapter by lazy { moshi.adapter(GeminiGenerateRequest::class.java) }
+        private val responseAdapter by lazy { moshi.adapter(GeminiGenerateResponse::class.java) }
+    }
 
     /**
      * Retrieves the API key safely from BuildConfig.

@@ -7,21 +7,23 @@ import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class Converters {
-    private val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
+    companion object {
+        private val moshi: Moshi = Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
 
-    private val stringListType = Types.newParameterizedType(List::class.java, String::class.java)
-    private val stringListAdapter = moshi.adapter<List<String>>(stringListType)
+        private val stringListType = Types.newParameterizedType(List::class.java, String::class.java)
+        private val stringListAdapter = moshi.adapter<List<String>>(stringListType)
 
-    private val ingredientListType = Types.newParameterizedType(List::class.java, RecipeIngredient::class.java)
-    private val ingredientListAdapter = moshi.adapter<List<RecipeIngredient>>(ingredientListType)
+        private val ingredientListType = Types.newParameterizedType(List::class.java, RecipeIngredient::class.java)
+        private val ingredientListAdapter = moshi.adapter<List<RecipeIngredient>>(ingredientListType)
 
-    private val stepListType = Types.newParameterizedType(List::class.java, RecipeStep::class.java)
-    private val stepListAdapter = moshi.adapter<List<RecipeStep>>(stepListType)
+        private val stepListType = Types.newParameterizedType(List::class.java, RecipeStep::class.java)
+        private val stepListAdapter = moshi.adapter<List<RecipeStep>>(stepListType)
 
-    private val subListType = Types.newParameterizedType(List::class.java, SubstitutionAdvice::class.java)
-    private val subListAdapter = moshi.adapter<List<SubstitutionAdvice>>(subListType)
+        private val subListType = Types.newParameterizedType(List::class.java, SubstitutionAdvice::class.java)
+        private val subListAdapter = moshi.adapter<List<SubstitutionAdvice>>(subListType)
+    }
 
     @TypeConverter
     fun fromFoodState(state: FoodState): String = state.name
