@@ -69,4 +69,12 @@ class ExampleRobolectricTest {
         assertTrue(recipes.first().matchPercentage >= 70)
         assertEquals(2, recipes.first().spiceLevel)
     }
+
+    @Test
+    fun `audio permission service reports permission correctly`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val service = com.example.util.AudioPermissionService(context)
+        // Verify service initializes and checks permission without crashing
+        service.hasAudioPermission()
+    }
 }

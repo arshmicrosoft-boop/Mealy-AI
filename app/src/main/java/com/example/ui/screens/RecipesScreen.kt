@@ -334,10 +334,10 @@ fun RecipeDetailView(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary)
                     ) {
-                        Icon(imageVector = Icons.Default.OutdoorGrill, contentDescription = null)
+                        Icon(imageVector = Icons.Default.Mic, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Start AI Guided Cooking Session",
+                            text = "Start Interactive Voice Cooking",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -413,7 +413,7 @@ fun RecipeDetailView(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Mealy checks your inventory in real-time",
+                        text = "Mealio checks your inventory in real-time",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

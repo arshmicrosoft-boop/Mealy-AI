@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
 import com.example.data.repository.KitchenRepository
+import com.example.util.SpeechRecognitionHelper
+import com.example.util.SpeechState
 import com.example.util.TextToSpeechHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,6 +36,22 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     private val database = AppDatabase.getDatabase(application, viewModelScope)
     val repository = KitchenRepository(database)
     val ttsHelper = TextToSpeechHelper(application)
+    val speechHelper = SpeechRecognitionHelper(application)
+
+    // Speech & Interactive Voice State
+    val speechState: StateFlow<SpeechState> = speechHelper.state
+
+    private val _voiceFeedbackMessage = MutableStateFlow<String?>(null)
+    val voiceFeedbackMessage: StateFlow<String?> = _voiceFeedbackMessage.asStateFlow()
+
+    private val _isVoiceAiProcessing = MutableStateFlow(false)
+    val isVoiceAiProcessing: StateFlow<Boolean> = _isVoiceAiProcessing.asStateFlow()
+
+    private val _aiVoiceResponse = MutableStateFlow<String?>(null)
+    val aiVoiceResponse: StateFlow<String?> = _aiVoiceResponse.asStateFlow()
+
+    private val _showCompletionDialogRequested = MutableStateFlow(false)
+    val showCompletionDialogRequested: StateFlow<Boolean> = _showCompletionDialogRequested.asStateFlow()
 
     // Current Tab
     private val _currentTab = MutableStateFlow(MainTab.HOME)
@@ -124,6 +142,159 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
         // Run initial scan simulation so user sees detected ingredients ready
         runFridgeScan("Full Fridge Scan")
         refreshAutonomousMealPlan()
+
+        speechHelper.setOnCommandRecognizedListener { spokenText ->
+            processVoiceCommand(spokenText)
+        }
+    }
+
+    fun startVoiceListening() {
+        _voiceFeedbackMessage.value = "Listening for hands-free command..."
+        speechHelper.startListening()
+    }
+
+    fun stopVoiceListening() {
+        speechHelper.stopListening()
+    }
+
+    fun toggleVoiceListening() {
+        if (speechHelper.state.value.isListening) {
+            stopVoiceListening()
+        } else {
+            startVoiceListening()
+        }
+    }
+
+    fun clearAiVoiceResponse() {
+        _aiVoiceResponse.value = null
+    }
+
+    fun dismissCompletionDialog() {
+        _showCompletionDialogRequested.value = false
+    }
+
+    fun processVoiceCommand(spokenText: String) {
+        val raw = spokenText.trim()
+        val text = raw.lowercase()
+        val recipe = _activeCookingRecipe.value
+        val stepIdx = _currentCookingStepIndex.value
+        val currentStep = recipe?.steps?.getOrNull(stepIdx)
+
+        _voiceFeedbackMessage.value = "Heard: \"$raw\""
+
+        when {
+            // Next Step
+            text.contains("next") || text.contains("continue") || text.contains("forward") || text.contains("done with this step") -> {
+                if (recipe != null && stepIdx == recipe.steps.lastIndex) {
+                    _showCompletionDialogRequested.value = true
+                    ttsHelper.speak("You've reached the final step! Ready to finish cooking?")
+                } else {
+                    nextCookingStep()
+                }
+            }
+
+            // Previous Step
+            text.contains("previous") || text.contains("back") || text.contains("last step") || text.contains("go back") -> {
+                previousCookingStep()
+            }
+
+            // Repeat Step
+            text.contains("repeat") || text.contains("read again") || text.contains("say again") || text.contains("what do i do") || text.contains("read step") -> {
+                speakCurrentStep()
+            }
+
+            // Ingredients for step
+            text.contains("ingredient") || text.contains("what do i need") || text.contains("what goes in") -> {
+                if (currentStep != null && currentStep.ingredientsNeeded.isNotEmpty()) {
+                    val ingText = currentStep.ingredientsNeeded.joinToString(", ")
+                    _aiVoiceResponse.value = "Step ${currentStep.stepNumber} ingredients: $ingText"
+                    ttsHelper.speak("For this step, you need: $ingText")
+                } else if (recipe != null) {
+                    val allIng = recipe.ingredients.take(5).joinToString(", ") { it.name }
+                    _aiVoiceResponse.value = "Recipe ingredients: $allIng"
+                    ttsHelper.speak("Key ingredients are: $allIng")
+                }
+            }
+
+            // Start Timer
+            (text.contains("start") || text.contains("begin") || text.contains("play") || text.contains("resume") || text.contains("set")) && text.contains("timer") -> {
+                startTimer()
+                ttsHelper.speak("Step timer started.")
+            }
+
+            // Pause Timer
+            (text.contains("pause") || text.contains("stop") || text.contains("hold")) && text.contains("timer") -> {
+                pauseTimer()
+                ttsHelper.speak("Step timer paused.")
+            }
+
+            // Reset Timer
+            (text.contains("reset") || text.contains("restart") || text.contains("clear")) && text.contains("timer") -> {
+                resetTimer()
+                ttsHelper.speak("Step timer reset.")
+            }
+
+            // Time Remaining Check
+            text.contains("how much time") || text.contains("time left") || text.contains("remaining time") || text.contains("timer status") -> {
+                val rem = _timerState.value.remainingSeconds
+                val mins = rem / 60
+                val secs = rem % 60
+                val msg = if (rem <= 0) "No active timer is currently running." else "$mins minutes and $secs seconds remaining."
+                _aiVoiceResponse.value = "Timer: $msg"
+                ttsHelper.speak(msg)
+            }
+
+            // Chef Science / Tip
+            text.contains("tip") || text.contains("science") || text.contains("why") || text.contains("chef advice") -> {
+                if (currentStep != null && (!currentStep.chefTip.isNullOrBlank() || !currentStep.scienceExplanation.isNullOrBlank())) {
+                    val tip = currentStep.chefTip ?: ""
+                    val science = currentStep.scienceExplanation ?: ""
+                    val combo = "$tip $science".trim()
+                    _aiVoiceResponse.value = "Chef Science: $combo"
+                    ttsHelper.speak(combo)
+                } else {
+                    ttsHelper.speak("Keep a moderate heat and let the pan preheat properly for the best sear.")
+                }
+            }
+
+            // Finish Cooking
+            text.contains("finish") || text.contains("complete") || text.contains("all done") -> {
+                _showCompletionDialogRequested.value = true
+                ttsHelper.speak("Great cooking! Wrapping up your session.")
+            }
+
+            // Silence / Stop Voice
+            text.contains("stop talking") || text.contains("be quiet") || text.contains("silence") || text.contains("shh") -> {
+                stopSpeaking()
+            }
+
+            // Ask Interactive Chef AI Question
+            else -> {
+                if (recipe != null && currentStep != null) {
+                    askAiDuringCooking(raw, recipe, currentStep)
+                } else {
+                    ttsHelper.speak("I heard: $raw. You can say 'next step', 'repeat', 'start timer', or ask any cooking question.")
+                }
+            }
+        }
+    }
+
+    private fun askAiDuringCooking(question: String, recipe: Recipe, step: RecipeStep) {
+        viewModelScope.launch {
+            _isVoiceAiProcessing.value = true
+            _aiVoiceResponse.value = "Chef AI thinking: \"$question\"..."
+            try {
+                val answer = repository.askCookingQuestion(question, recipe, step)
+                _aiVoiceResponse.value = answer
+                ttsHelper.speak(answer)
+            } catch (e: Exception) {
+                val fallback = "Adjust temperature moderately, taste for seasoning, and watch texture closely."
+                _aiVoiceResponse.value = fallback
+                ttsHelper.speak(fallback)
+            } finally {
+                _isVoiceAiProcessing.value = false
+            }
+        }
     }
 
     fun refreshAutonomousMealPlan() {
@@ -468,6 +639,7 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         super.onCleared()
         ttsHelper.shutdown()
+        speechHelper.destroy()
         timerJob?.cancel()
     }
 }

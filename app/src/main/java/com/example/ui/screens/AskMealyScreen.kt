@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.ChatMessage
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
-import kotlinx.coroutines.launch
+import com.example.util.rememberAudioPermissionState
 
 @Composable
 fun AskMealyScreen(
@@ -35,9 +35,9 @@ fun AskMealyScreen(
 ) {
     val messages by viewModel.chatMessages.collectAsState()
     val isGenerating by viewModel.isChatGenerating.collectAsState()
+    val speechState by viewModel.speechState.collectAsState()
     var inputQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
 
     val quickPills = listOf(
         "What can I cook right now?",
@@ -46,6 +46,18 @@ fun AskMealyScreen(
         "Explain Maillard browning in searing",
         "High protein 20-min dinner"
     )
+
+    val audioPermissionState = rememberAudioPermissionState { isGranted ->
+        if (isGranted) {
+            viewModel.startVoiceListening()
+        }
+    }
+
+    LaunchedEffect(speechState.lastResultText) {
+        if (speechState.lastResultText.isNotBlank()) {
+            inputQuery = speechState.lastResultText
+        }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -105,12 +117,29 @@ fun AskMealyScreen(
                         OutlinedTextField(
                             value = inputQuery,
                             onValueChange = { inputQuery = it },
-                            placeholder = { Text("Ask Mealy Chef anything...") },
+                            placeholder = { Text(if (speechState.isListening) "Listening..." else "Ask Mealio Chef or speak...") },
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("ask_mealy_input_field"),
                             shape = RoundedCornerShape(24.dp),
-                            maxLines = 3
+                            maxLines = 3,
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = {
+                                        if (!audioPermissionState.hasPermission) {
+                                            audioPermissionState.requestPermission()
+                                        } else {
+                                            viewModel.toggleVoiceListening()
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (speechState.isListening) Icons.Default.Mic else Icons.Default.MicNone,
+                                        contentDescription = "Voice Input",
+                                        tint = if (speechState.isListening) ExpiringRed else SageGreenPrimary
+                                    )
+                                }
+                            }
                         )
 
                         IconButton(
@@ -151,6 +180,7 @@ fun AskMealyScreen(
             items(messages, key = { it.id }) { msg ->
                 ChatBubble(
                     message = msg,
+                    onSpeak = { viewModel.ttsHelper.speak(msg.text) },
                     onActionClick = { action -> viewModel.sendChatMessage(action) }
                 )
             }
@@ -177,7 +207,7 @@ fun AskMealyScreen(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Mealy is thinking...",
+                            text = "Mealio is thinking...",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -192,6 +222,7 @@ fun AskMealyScreen(
 @Composable
 fun ChatBubble(
     message: ChatMessage,
+    onSpeak: () -> Unit,
     onActionClick: (String) -> Unit
 ) {
     Row(
@@ -209,7 +240,7 @@ fun ChatBubble(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "Mealy AI",
+                        contentDescription = "Mealio AI",
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
@@ -239,6 +270,23 @@ fun ChatBubble(
                         color = if (message.isUser) Color.White else MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 22.sp)
                     )
+
+                    if (!message.isUser) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        IconButton(
+                            onClick = onSpeak,
+                            modifier = Modifier
+                                .align(Alignment.End)
+                                .size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = "Read Aloud",
+                                tint = SageGreenPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
 

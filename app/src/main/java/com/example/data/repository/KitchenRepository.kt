@@ -180,4 +180,10 @@ class KitchenRepository(
         val context = buildKitchenContext()
         return aiProvider.chatWithChef(userMessage, context, history)
     }
+
+    suspend fun askCookingQuestion(question: String, activeRecipe: Recipe, activeStep: RecipeStep): String {
+        val context = buildKitchenContext(activeRecipe = activeRecipe, activeStep = activeStep)
+        val prompt = "During cooking '${activeRecipe.title}' at Step ${activeStep.stepNumber} ('${activeStep.title}': ${activeStep.instruction}), the cook asked: \"$question\". Give a concise, clear 1-2 sentence culinary answer suitable for voice reading."
+        return aiProvider.chatWithChef(prompt, context, emptyList())
+    }
 }
