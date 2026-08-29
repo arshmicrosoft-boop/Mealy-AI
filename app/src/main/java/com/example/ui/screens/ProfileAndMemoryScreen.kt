@@ -362,7 +362,7 @@ fun AddMemoryDialog(
                 OutlinedTextField(
                     value = insight,
                     onValueChange = { insight = it },
-                    label = { Text("What did Mealy learn?") },
+                    label = { Text("What did Mealio learn?") },
                     placeholder = { Text("e.g. Loves crispy golden chicken skin") },
                     modifier = Modifier.fillMaxWidth()
                 )

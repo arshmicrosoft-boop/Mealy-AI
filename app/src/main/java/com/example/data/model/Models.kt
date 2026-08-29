@@ -188,6 +188,32 @@ data class DetectedFoodItem(
 )
 
 @JsonClass(generateAdapter = true)
+data class MealPlanSlot(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val mealType: String, // "Breakfast", "Lunch", "Dinner"
+    val recipeTitle: String,
+    val recipeId: Long,
+    val prepTimeMin: Int,
+    val calories: Int,
+    val proteinG: Int,
+    val whyScheduled: String,
+    val rescuedIngredients: List<String> = emptyList(),
+    val isCompleted: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class AutonomousMealPlan(
+    val dayLabel: String = "Today's Autonomous Plan",
+    val generatedAtTimestamp: Long = System.currentTimeMillis(),
+    val meals: List<MealPlanSlot> = emptyList(),
+    val totalCalories: Int = 0,
+    val totalProteinG: Int = 0,
+    val rescuedIngredientsCount: Int = 0,
+    val projectedSavingsDollars: Double = 8.50,
+    val preferenceAlignmentNote: String = "Tailored to your High-Protein goals and Mild spice tolerance"
+)
+
+@JsonClass(generateAdapter = true)
 data class ChatMessage(
     val id: String = java.util.UUID.randomUUID().toString(),
     val text: String,

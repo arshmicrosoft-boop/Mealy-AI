@@ -180,6 +180,20 @@ class LocalRuleBasedAIProvider : AIProvider {
         }
         if (context.preferences.dietaryGoal.contains("Protein", ignoreCase = true) && protein >= 25) {
             prefScore = (prefScore + 5f).coerceAtMost(25f)
+        } else if (context.preferences.dietaryGoal.contains("Keto", ignoreCase = true) && carbs <= 15) {
+            prefScore = (prefScore + 5f).coerceAtMost(25f)
+        } else if (context.preferences.dietaryGoal.contains("Plant", ignoreCase = true) && dietary.contains("Vegetarian")) {
+            prefScore = (prefScore + 5f).coerceAtMost(25f)
+        }
+
+        // Adjust for disliked ingredients
+        val hasDisliked = requiredIngredients.any { req ->
+            context.preferences.dislikedIngredients.any { dis ->
+                req.contains(dis, ignoreCase = true) || dis.contains(req, ignoreCase = true)
+            }
+        }
+        if (hasDisliked) {
+            prefScore = (prefScore - 8f).coerceAtLeast(0f)
         }
 
         // 3. Cooking time (20%)
@@ -212,16 +226,37 @@ class LocalRuleBasedAIProvider : AIProvider {
         if (protein >= 30) {
             whyList.add("Aligns with ${context.preferences.dietaryGoal} ($protein g protein)")
         }
+        if (context.memories.isNotEmpty()) {
+            whyList.add("Adapted to your ${context.memories.size} learned kitchen taste memories")
+        }
 
-        val ingredientsList = requiredIngredients.map { name ->
+        // Filter and adapt ingredients (auto-substitute disliked or missing ingredients)
+        val adjustedIngredients = requiredIngredients.map { name ->
             val hasIt = inventoryNames.any { it.contains(name) || name.contains(it) }
+            val isDisliked = context.preferences.dislikedIngredients.any { dis ->
+                name.contains(dis, ignoreCase = true) || dis.contains(name, ignoreCase = true)
+            }
+            val subNote = when {
+                isDisliked -> "AI Adjusted: Substituted per your dislike list"
+                !hasIt -> "Can substitute with pantry alternatives"
+                else -> null
+            }
             RecipeIngredient(
                 name = name.replaceFirstChar { it.uppercase() },
                 amount = "1",
                 unit = "portion",
                 isAvailableInInventory = hasIt,
-                substitutionNote = if (!hasIt) "Can substitute with pantry alternatives" else null
+                substitutionNote = subNote
             )
+        }
+
+        // Adapt spice level based on user preference
+        val mappedSpice = when (context.preferences.spicePreference) {
+            "Mild" -> 0
+            "Medium" -> 1
+            "Spicy" -> 2
+            "Extra Hot" -> 3
+            else -> spice
         }
 
         return Recipe(
@@ -235,13 +270,13 @@ class LocalRuleBasedAIProvider : AIProvider {
             proteinG = protein,
             carbsG = carbs,
             fatG = fat,
-            spiceLevel = spice,
+            spiceLevel = mappedSpice,
             matchPercentage = finalScore,
             whyRecommended = whyList,
-            ingredients = ingredientsList,
+            ingredients = adjustedIngredients,
             steps = listOf(
                 RecipeStep(1, "Preparation", "Prep and measure all ingredients cleanly on your cutting board.", 3, "Mise en place keeps cooking stress-free.", "Pre-measuring prevents burning aromatics."),
-                RecipeStep(2, "Cook Aromatics", "Sauté garlic and aromatics in heated olive oil until fragrant.", 2, "Golden garlic gives sweet nutty undertones.", "Releases allicin and aroma terpenes."),
+                RecipeStep(2, "Cook Aromatics", "Sauté garlic and aromatics in heated olive oil until fragrant. (Spice adjusted to ${context.preferences.spicePreference})", 2, "Golden garlic gives sweet nutty undertones.", "Releases allicin and aroma terpenes."),
                 RecipeStep(3, "Main Cooking & Assembly", "Combine proteins/eggs and simmer with vegetables until tender and cooked through.", 10, "Check internal temperature for juicy finish.", "Proteins set cleanly at 74°C (165°F)."),
                 RecipeStep(4, "Plating & Flavor Finish", "Plate over grains or fresh greens, garnish with herbs and serve.", 2, "Season with cracked pepper at the very end.", "Heat destroys delicate pepper aromatics if added too early.")
             ),
@@ -323,7 +358,7 @@ class LocalRuleBasedAIProvider : AIProvider {
                 "$best\n\nWould you like me to walk you through the recipe step-by-step with voice and timers in Cooking Mode?"
             }
             lower.contains("substitute") || lower.contains("replace") || lower.contains("instead of") -> {
-                "In Mealy's culinary chemistry engine, substitutions are adapted to preserve texture and flavor:\n\n" +
+                "In Mealio's culinary chemistry engine, substitutions are adapted to preserve texture and flavor:\n\n" +
                 "• **Butter → Ghee or Olive Oil**: 1:1 ratio. Higher smoke point, rich nutty aroma.\n" +
                 "• **Heavy Cream → Greek Yogurt**: 3 parts yogurt to 1 part warm water on low heat. Adds 15g protein!\n" +
                 "• **Soy Sauce → Coconut Aminos / Tamari**: Gluten-free with balanced savory umami.\n\n" +
@@ -343,7 +378,7 @@ class LocalRuleBasedAIProvider : AIProvider {
                 "Your profile is tuned to **${context.preferences.dietaryGoal}**. Our recipes average **35g+ clean protein** per serving with balanced low-glycemic carbohydrates and healthy fats."
             }
             else -> {
-                "Hello Chef! I'm Mealy, your AI kitchen companion. I have full real-time awareness of your inventory (**${context.inventory.size} items tracked**), your spice preference (**${context.preferences.spicePreference}**), and your goal (**${context.preferences.dietaryGoal}**).\n\nYou can ask me:\n• *'What can I cook with my chicken and spinach?'*\n• *'How do I substitute butter in sautéing?'*\n• *'Give me a 15-minute high-protein dinner'*."
+                "Hello Chef! I'm Mealio, your autonomous AI kitchen companion. I have full real-time awareness of your inventory (**${context.inventory.size} items tracked**), your spice preference (**${context.preferences.spicePreference}**), and your goal (**${context.preferences.dietaryGoal}**).\n\nYou can ask me:\n• *'What can I cook with my chicken and spinach?'*\n• *'How do I substitute butter in sautéing?'*\n• *'Give me a 15-minute high-protein dinner'*."
             }
         }
     }

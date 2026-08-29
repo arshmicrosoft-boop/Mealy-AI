@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Mealy AI"
+rootProject.name = "Mealio AI"
 
 include(":app")

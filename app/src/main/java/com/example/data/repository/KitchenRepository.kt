@@ -54,13 +54,93 @@ class KitchenRepository(
         val memory = KitchenMemoryLog(
             category = "COMPLETED_RECIPE",
             insight = "Cooked '${session.recipeTitle}' with ${session.rating}★ rating. Note: ${session.feedbackNote}",
-            actionTaken = "Mealy AI updated taste profile and prioritized similar flavor profiles"
+            actionTaken = "Mealio AI updated taste profile and prioritized similar flavor profiles"
         )
         database.kitchenMemoryDao().insertMemory(memory)
+        getAdaptiveRecipes()
     }
 
     suspend fun addKitchenMemory(memory: KitchenMemoryLog) {
         database.kitchenMemoryDao().insertMemory(memory)
+        getAdaptiveRecipes()
+    }
+
+    suspend fun generateAutonomousMealPlan(): AutonomousMealPlan {
+        val context = buildKitchenContext()
+        val recipes = getAdaptiveRecipes()
+        val expiringNames = context.expiringItems.map { it.name }
+
+        val breakfast = recipes.find { it.title.contains("Scramble", ignoreCase = true) || it.title.contains("Egg", ignoreCase = true) }
+            ?: recipes.firstOrNull()
+        val lunch = recipes.find { it.title.contains("Bowl", ignoreCase = true) || it.title.contains("Shakshuka", ignoreCase = true) }
+            ?: recipes.getOrNull(1) ?: recipes.firstOrNull()
+        val dinner = recipes.find { it.title.contains("Skillet", ignoreCase = true) || it.title.contains("Chicken", ignoreCase = true) }
+            ?: recipes.getOrNull(2) ?: recipes.firstOrNull()
+
+        val slots = mutableListOf<MealPlanSlot>()
+
+        if (breakfast != null) {
+            val rescued = expiringNames.filter { exp -> breakfast.ingredients.any { it.name.contains(exp, ignoreCase = true) } }
+            slots.add(
+                MealPlanSlot(
+                    mealType = "Breakfast",
+                    recipeTitle = breakfast.title,
+                    recipeId = breakfast.id,
+                    prepTimeMin = breakfast.totalTimeMin,
+                    calories = breakfast.calories,
+                    proteinG = breakfast.proteinG,
+                    whyScheduled = "Autonomously planned: High protein morning kickstart under ${breakfast.totalTimeMin}m",
+                    rescuedIngredients = rescued
+                )
+            )
+        }
+
+        if (lunch != null) {
+            val rescued = expiringNames.filter { exp -> lunch.ingredients.any { it.name.contains(exp, ignoreCase = true) } }
+            slots.add(
+                MealPlanSlot(
+                    mealType = "Lunch",
+                    recipeTitle = lunch.title,
+                    recipeId = lunch.id,
+                    prepTimeMin = lunch.totalTimeMin,
+                    calories = lunch.calories,
+                    proteinG = lunch.proteinG,
+                    whyScheduled = if (rescued.isNotEmpty()) "Prioritizes expiring ${rescued.joinToString()} to avoid waste" else "Balanced midday nutrient profile matching ${context.preferences.dietaryGoal}",
+                    rescuedIngredients = rescued
+                )
+            )
+        }
+
+        if (dinner != null) {
+            val rescued = expiringNames.filter { exp -> dinner.ingredients.any { it.name.contains(exp, ignoreCase = true) } }
+            slots.add(
+                MealPlanSlot(
+                    mealType = "Dinner",
+                    recipeTitle = dinner.title,
+                    recipeId = dinner.id,
+                    prepTimeMin = dinner.totalTimeMin,
+                    calories = dinner.calories,
+                    proteinG = dinner.proteinG,
+                    whyScheduled = "Cooks satisfying ${dinner.cuisine} dinner with ${dinner.proteinG}g protein in ${dinner.totalTimeMin}m",
+                    rescuedIngredients = rescued
+                )
+            )
+        }
+
+        val totalCal = slots.sumOf { it.calories }
+        val totalProtein = slots.sumOf { it.proteinG }
+        val totalRescued = slots.flatMap { it.rescuedIngredients }.distinct().size
+        val projectedSavings = totalRescued * 3.40 + 2.50
+
+        return AutonomousMealPlan(
+            dayLabel = "Today's Autonomous Plan",
+            meals = slots,
+            totalCalories = totalCal,
+            totalProteinG = totalProtein,
+            rescuedIngredientsCount = totalRescued,
+            projectedSavingsDollars = projectedSavings,
+            preferenceAlignmentNote = "Autonomously tailored to your ${context.preferences.dietaryGoal} goal, ${context.preferences.spicePreference} spice tolerance & ≤${context.preferences.maxCookingTimeMin}m limit"
+        )
     }
 
     suspend fun buildKitchenContext(activeRecipe: Recipe? = null, activeStep: RecipeStep? = null): KitchenContext {

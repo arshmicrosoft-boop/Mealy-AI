@@ -47,6 +47,8 @@ fun HomeScreen(
     val recipes by viewModel.allRecipes.collectAsState()
     val preferences by viewModel.userPreferences.collectAsState()
     val memories by viewModel.kitchenMemories.collectAsState()
+    val mealPlan by viewModel.autonomousMealPlan.collectAsState()
+    val isPlanningMeals by viewModel.isPlanningMeals.collectAsState()
 
     val expiringItems = inventory.filter { it.isExpiringSoon() }
     val totalEstimatedValue = inventory.sumOf { it.estimatedPriceDollars }
@@ -114,7 +116,7 @@ fun HomeScreen(
                             }
                             Column {
                                 Text(
-                                    text = "MEALY AI",
+                                    text = "MEALIO AI",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Black,
                                         letterSpacing = 1.sp,
@@ -122,7 +124,7 @@ fun HomeScreen(
                                     )
                                 )
                                 Text(
-                                    text = "AI Kitchen Intelligence",
+                                    text = "Autonomous Kitchen & Meal Planner",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = Color.White.copy(alpha = 0.8f)
                                     )
@@ -163,7 +165,7 @@ fun HomeScreen(
                             )
                         )
                         Text(
-                            text = "Your fridge has ${inventory.size} items ready to transform.",
+                            text = "Tracking ${inventory.size} items in inventory • Zero-waste meal planning active.",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color.White.copy(alpha = 0.9f)
                             )
@@ -173,14 +175,14 @@ fun HomeScreen(
             }
         }
 
-        // 2. Ask Mealy Prompt Trigger
+        // 2. Ask Mealio Prompt Trigger
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
                     .clickable { viewModel.selectTab(MainTab.ASK_MEALY) }
-                    .testTag("ask_mealy_input_card"),
+                    .testTag("ask_mealio_input_card"),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -208,11 +210,11 @@ fun HomeScreen(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Ask Mealy Chef...",
+                            text = "Ask Mealio Chef...",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Text(
-                            text = "\"What can I make in 20 minutes with chicken?\"",
+                            text = "\"Plan meals for today using my expiring spinach\"",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -223,6 +225,207 @@ fun HomeScreen(
                         contentDescription = "Ask",
                         tint = SageGreenPrimary
                     )
+                }
+            }
+        }
+
+        // 3. Autonomous Daily Meal Plan Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .testTag("autonomous_meal_plan_card"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, SageGreenPrimary.copy(alpha = 0.35f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SageContainer,
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = SageGreenPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "Autonomous Meal Plan",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "AI scheduled from inventory & personal taste",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.refreshAutonomousMealPlan() },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Regenerate Plan",
+                                tint = SageGreenPrimary
+                            )
+                        }
+                    }
+
+                    if (mealPlan != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Macro & Savings Summary Badges
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SageContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "${mealPlan!!.totalCalories} kcal",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = OnSageContainer)
+                                    )
+                                    Text("Daily Total", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = OnSageContainer.copy(alpha = 0.8f)))
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AmberContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "${mealPlan!!.totalProteinG}g Protein",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = OnAmberContainer)
+                                    )
+                                    Text("Macro Goal", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = OnAmberContainer.copy(alpha = 0.8f)))
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = ExpiringRedContainer,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "${mealPlan!!.rescuedIngredientsCount} Rescued",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = ExpiringRed)
+                                    )
+                                    Text("Save ~\$${String.format("%.2f", mealPlan!!.projectedSavingsDollars)}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = ExpiringRed.copy(alpha = 0.8f)))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = mealPlan!!.preferenceAlignmentNote,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = SageGreenPrimary,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Meal Slots
+                        mealPlan!!.meals.forEach { slot ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = SageGreenPrimary
+                                            ) {
+                                                Text(
+                                                    text = slot.mealType.uppercase(),
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "${slot.prepTimeMin}m • ${slot.calories} cal",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = slot.recipeTitle,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                        if (slot.rescuedIngredients.isNotEmpty()) {
+                                            Text(
+                                                text = "Rescues: ${slot.rescuedIngredients.joinToString()}",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = ExpiringRed, fontSize = 10.sp)
+                                            )
+                                        }
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = {
+                                            val matchedRecipe = recipes.find { it.id == slot.recipeId }
+                                                ?: recipes.find { it.title.equals(slot.recipeTitle, ignoreCase = true) }
+                                                ?: recipes.firstOrNull()
+                                            if (matchedRecipe != null) {
+                                                viewModel.startCookingSession(matchedRecipe)
+                                            } else {
+                                                viewModel.selectTab(MainTab.RECIPES)
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = SageContainer,
+                                            contentColor = SageGreenPrimary
+                                        )
+                                    ) {
+                                        Text("Cook", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -524,7 +727,7 @@ fun HomeRecipeCard(
                 maxLines = 2
             )
 
-            // Why Mealy recommended it breakdown
+            // Why Mealio recommended it breakdown
             if (recipe.whyRecommended.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(

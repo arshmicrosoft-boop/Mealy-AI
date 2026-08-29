@@ -18,10 +18,10 @@ import org.robolectric.annotation.Config
 class ExampleRobolectricTest {
 
     @Test
-    fun `read string from context matches Mealy AI`() {
+    fun `read string from context matches Mealio AI`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("Mealy AI", appName)
+        assertEquals("Mealio AI", appName)
     }
 
     @Test
@@ -39,7 +39,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `rule based AI generates recommendations with ranking`() = runBlocking {
+    fun `rule based AI generates recommendations with ranking and adapts to preferences`() = runBlocking {
         val aiProvider = LocalRuleBasedAIProvider()
         val now = System.currentTimeMillis()
         val dayMs = 24 * 60 * 60 * 1000L
@@ -54,15 +54,19 @@ class ExampleRobolectricTest {
             ),
             preferences = UserPreferences(
                 favoriteCuisines = listOf("Mediterranean"),
-                spicePreference = "Medium",
+                spicePreference = "Spicy",
                 dietaryGoal = "High Protein & Balanced",
+                dislikedIngredients = listOf("cilantro"),
                 maxCookingTimeMin = 30
             ),
-            memories = emptyList()
+            memories = listOf(
+                KitchenMemoryLog(category = "TASTE", insight = "Prefers spicy flavors", actionTaken = "Adjusted spice level")
+            )
         )
 
         val recipes = aiProvider.generateRecipeRecommendations(context)
         assertTrue(recipes.isNotEmpty())
         assertTrue(recipes.first().matchPercentage >= 70)
+        assertEquals(2, recipes.first().spiceLevel)
     }
 }

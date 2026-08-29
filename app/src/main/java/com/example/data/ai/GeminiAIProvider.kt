@@ -52,7 +52,7 @@ open class GeminiAIProvider(
         return withContext(Dispatchers.IO) {
             try {
                 val prompt = """
-                    You are Mealy AI's Fridge Vision engine. The user captured a fridge image or label description: "$imageDescriptionOrLabels".
+                    You are Mealio AI's Fridge Vision engine. The user captured a fridge image or label description: "$imageDescriptionOrLabels".
                     Detect 4 to 6 food items accurately.
                     Return ONLY valid JSON array with objects formatted as:
                     [
@@ -85,7 +85,7 @@ open class GeminiAIProvider(
             try {
                 val ingredientsList = ingredients.joinToString(", ")
                 val prompt = """
-                    You are Mealy AI Kitchen Intelligence.
+                    You are Mealio AI Kitchen Intelligence.
                     Based on these ingredients available: $ingredientsList
                     Generate delicious recipe recommendations prioritizing minimizing waste and matching the provided ingredients.
                 """.trimIndent()
@@ -110,7 +110,7 @@ open class GeminiAIProvider(
                 val inventoryText = context.inventory.joinToString(", ") { "${it.name} (state: ${it.state.label}, expires in ${it.daysUntilExpiry()}d)" }
                 val expiringText = context.expiringItems.joinToString(", ") { it.name }
                 val prompt = """
-                    You are Mealy AI Kitchen Intelligence.
+                    You are Mealio AI Kitchen Intelligence.
                     Inventory: $inventoryText
                     Expiring soon items (MUST PRIORITIZE): $expiringText
                     User Preferences: Cuisines: ${context.preferences.favoriteCuisines.joinToString()}, Spice: ${context.preferences.spicePreference}, Goal: ${context.preferences.dietaryGoal}, Max Time: ${context.preferences.maxCookingTimeMin} mins, Disliked: ${context.preferences.dislikedIngredients.joinToString()}
@@ -140,7 +140,7 @@ open class GeminiAIProvider(
         return withContext(Dispatchers.IO) {
             try {
                 val prompt = """
-                    As Mealy AI culinary chemistry system, give substitution advice for missing ingredient: "$missingIngredient".
+                    As Mealio AI culinary chemistry system, give substitution advice for missing ingredient: "$missingIngredient".
                     Current pantry/fridge has: ${context.inventory.joinToString { it.name }}.
                     Explain the food science, flavor profile, and ratio.
                     Format:
@@ -172,7 +172,7 @@ open class GeminiAIProvider(
                 val expiring = context.expiringItems.joinToString(", ") { it.name }
 
                 val prompt = """
-                    You are Mealy, an AI kitchen companion, personal chef, and food waste intelligence expert.
+                    You are Mealio, an autonomous AI kitchen companion, personal chef, and food inventory & waste intelligence expert.
                     Current User Kitchen Context:
                     - Current Inventory: $invSummary
                     - Expiring Soon Items: $expiring

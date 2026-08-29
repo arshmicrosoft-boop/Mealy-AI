@@ -82,17 +82,17 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
-    // Ask Mealy Chat State
+    // Ask Mealio Chat State
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
         listOf(
             ChatMessage(
-                text = "Welcome to Mealy AI! I've indexed your kitchen ingredients and expiring items. Ask me what to cook, how to adapt a recipe, or culinary food science tips.",
+                text = "Welcome to Mealio AI! I autonomously track your kitchen inventory, prevent food waste, and plan your meals based on your personal taste preferences. Ask me what to cook, request substitutions, or ask for meal plan adjustments.",
                 isUser = false,
                 suggestedActions = listOf(
+                    "Plan my meals for today",
                     "What can I cook right now?",
                     "How do I substitute butter with ghee?",
-                    "What items are expiring soon?",
-                    "Suggest a 20-min high protein dinner"
+                    "What items are expiring soon?"
                 )
             )
         )
@@ -105,6 +105,13 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     private val _isGeneratingRecipes = MutableStateFlow(false)
     val isGeneratingRecipes: StateFlow<Boolean> = _isGeneratingRecipes.asStateFlow()
 
+    // Autonomous Meal Plan State
+    private val _autonomousMealPlan = MutableStateFlow<AutonomousMealPlan?>(null)
+    val autonomousMealPlan: StateFlow<AutonomousMealPlan?> = _autonomousMealPlan.asStateFlow()
+
+    private val _isPlanningMeals = MutableStateFlow(false)
+    val isPlanningMeals: StateFlow<Boolean> = _isPlanningMeals.asStateFlow()
+
     // Inventory Filter
     private val _inventoryFilter = MutableStateFlow("All")
     val inventoryFilter: StateFlow<String> = _inventoryFilter.asStateFlow()
@@ -116,6 +123,20 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     init {
         // Run initial scan simulation so user sees detected ingredients ready
         runFridgeScan("Full Fridge Scan")
+        refreshAutonomousMealPlan()
+    }
+
+    fun refreshAutonomousMealPlan() {
+        viewModelScope.launch {
+            _isPlanningMeals.value = true
+            try {
+                _autonomousMealPlan.value = repository.generateAutonomousMealPlan()
+            } catch (e: Exception) {
+                // Fallback handled safely
+            } finally {
+                _isPlanningMeals.value = false
+            }
+        }
     }
 
     fun selectTab(tab: MainTab) {
@@ -178,12 +199,13 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
                     state = FoodState.STORED,
                     expiryTimestamp = now + (detected.estimatedShelfLifeDays * dayMs),
                     location = if (detected.category == IngredientCategory.PANTRY_GRAINS || detected.category == IngredientCategory.CONDIMENTS_SPICES) "Pantry" else "Fridge",
-                    notes = "Auto-scanned by Mealy Fridge Vision (${(detected.confidence * 100).toInt()}% confidence)",
+                    notes = "Auto-scanned by Mealio Fridge Vision (${(detected.confidence * 100).toInt()}% confidence)",
                     estimatedPriceDollars = 3.50
                 )
             }
             repository.addInventoryItems(newInventory)
             _detectedFoodItems.value = emptyList()
+            refreshAutonomousMealPlan()
             onSuccess()
         }
     }
@@ -427,6 +449,7 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     fun updatePreferences(prefs: UserPreferences) {
         viewModelScope.launch {
             repository.savePreferences(prefs)
+            refreshAutonomousMealPlan()
         }
     }
 
@@ -438,6 +461,7 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
                 actionTaken = actionTaken
             )
             repository.addKitchenMemory(memory)
+            refreshAutonomousMealPlan()
         }
     }
 
