@@ -25,12 +25,15 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.FoodState
 import com.example.data.model.IngredientCategory
 import com.example.data.model.InventoryItem
+import com.example.ui.components.BarcodeAndLabelScannerSheet
 import com.example.ui.components.CategoryIcon
 import com.example.ui.components.ExpiryUrgencyChip
 import com.example.ui.components.FoodStateBadge
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
 import com.example.ui.viewmodel.MainTab
+import com.example.util.rememberCameraPermissionState
+import kotlinx.coroutines.launch
 
 @Composable
 fun InventoryScreen(
@@ -40,6 +43,10 @@ fun InventoryScreen(
     val items by viewModel.activeInventory.collectAsState()
     val filter by viewModel.inventoryFilter.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showScannerSheet by remember { mutableStateOf(false) }
+    val cameraPermissionState = rememberCameraPermissionState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     val filterOptions = listOf("All", "Expiring Soon", "Fridge", "Pantry", "Opened")
 
@@ -56,21 +63,82 @@ fun InventoryScreen(
     val expiringCount = items.count { it.isExpiringSoon() }
     val totalValue = items.sumOf { it.estimatedPriceDollars }
 
+    if (cameraPermissionState.showRationaleDialog) {
+        AlertDialog(
+            onDismissRequest = cameraPermissionState.dismissRationale,
+            title = { Text("Camera Permission Needed") },
+            text = { Text("Mealio needs camera access to scan barcodes and ingredient packaging labels.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    cameraPermissionState.dismissRationale()
+                    cameraPermissionState.requestPermission()
+                }) {
+                    Text("Grant Permission")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = cameraPermissionState.dismissRationale) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = modifier
             .fillMaxSize()
             .testTag("inventory_screen"),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = SageGreenPrimary,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier
-                    .padding(bottom = 16.dp)
-                    .testTag("add_inventory_fab")
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Item")
+                // Primary: Camera Barcode & Label Scanner FAB
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        if (!cameraPermissionState.hasPermission) {
+                            cameraPermissionState.requestPermission()
+                        }
+                        showScannerSheet = true
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = "Scan Barcode or Label",
+                            tint = Color.White
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Scan Barcode / Label",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    },
+                    containerColor = SageGreenPrimary,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.testTag("scan_barcode_fab")
+                )
+
+                // Secondary: Manual Add Item FAB
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .testTag("add_inventory_fab")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Item Manually",
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -260,6 +328,19 @@ fun InventoryScreen(
             onAdd = { name, cat, qty, unit, shelf, loc ->
                 viewModel.addManualInventoryItem(name, cat, qty, unit, shelf, loc)
                 showAddDialog = false
+            }
+        )
+    }
+
+    if (showScannerSheet) {
+        BarcodeAndLabelScannerSheet(
+            viewModel = viewModel,
+            onDismiss = { showScannerSheet = false },
+            onItemAdded = { itemName ->
+                showScannerSheet = false
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Added '$itemName' to inventory")
+                }
             }
         )
     }

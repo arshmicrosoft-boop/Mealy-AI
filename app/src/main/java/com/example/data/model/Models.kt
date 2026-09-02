@@ -238,3 +238,130 @@ data class UserProfile(
     val isAnonymous: Boolean = false
 )
 
+@JsonClass(generateAdapter = true)
+data class DailyQuest(
+    val id: String,
+    val title: String,
+    val description: String,
+    val xpReward: Int,
+    val isCompleted: Boolean = false,
+    val progress: Float = 0f, // 0.0 to 1.0
+    val iconEmoji: String = "✨"
+)
+
+@JsonClass(generateAdapter = true)
+data class MysteryChefDrop(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String = "Secret Smoked Paprika & Lime Infusion",
+    val flavorHack: String = "Add 1/2 tsp of smoked paprika with fresh lime zest in hot olive oil for a 30-second aromatics explosion that elevates simple chicken.",
+    val bonusXp: Int = 120,
+    val surpriseDish: String = "Smoky Citrus Glazed Chicken Bowl",
+    val isOpened: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class ChefBadge(
+    val id: String,
+    val title: String,
+    val description: String,
+    val iconEmoji: String,
+    val isUnlocked: Boolean = false,
+    val unlockedDate: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class KitchenPsychologyState(
+    val streakDays: Int = 5,
+    val hasStreakShield: Boolean = true,
+    val streakShieldsRemaining: Int = 1,
+    val kitchenIqScore: Int = 84, // Out of 100 (Endowed progress)
+    val currentXp: Int = 740,
+    val xpForNextLevel: Int = 1000,
+    val chefTierName: String = "Level 3: Pantry Tactician",
+    val chefTierLevel: Int = 3,
+    val totalMoneySavedDollars: Double = 94.20,
+    val totalFoodRescuedKg: Double = 4.8,
+    val mealsCookedTotal: Int = 18,
+    val tasteDnaUniquePercentage: Int = 94,
+    val cityRankPercentile: Int = 5, // Top 5% in city
+    val dailyQuests: List<DailyQuest> = listOf(
+        DailyQuest(
+            id = "quest_scan",
+            title = "Pantry Eye Check",
+            description = "Scan or log 1 pantry item",
+            xpReward = 50,
+            isCompleted = true,
+            progress = 1.0f,
+            iconEmoji = "📸"
+        ),
+        DailyQuest(
+            id = "quest_rescue",
+            title = "Zero-Waste Rescue",
+            description = "Cook a recipe using 1 expiring ingredient",
+            xpReward = 100,
+            isCompleted = false,
+            progress = 0.65f,
+            iconEmoji = "🥬"
+        ),
+        DailyQuest(
+            id = "quest_mystery",
+            title = "Flavor Discovery",
+            description = "Open your Daily Mystery Chef Drop",
+            xpReward = 75,
+            isCompleted = false,
+            progress = 0f,
+            iconEmoji = "🎁"
+        )
+    ),
+    val mysteryDrop: MysteryChefDrop = MysteryChefDrop(),
+    val badges: List<ChefBadge> = listOf(
+        ChefBadge(
+            id = "badge_streak_master",
+            title = "Streak Master",
+            description = "Cooked or tracked for 5 consecutive days",
+            iconEmoji = "🔥",
+            isUnlocked = true,
+            unlockedDate = "Today"
+        ),
+        ChefBadge(
+            id = "badge_waste_slayer",
+            title = "Pantry Rescuer",
+            description = "Rescued 10+ ingredients before expiration",
+            iconEmoji = "🛡️",
+            isUnlocked = true,
+            unlockedDate = "2 days ago"
+        ),
+        ChefBadge(
+            id = "badge_speed_demon",
+            title = "Lightning Chef",
+            description = "Completed a full healthy meal in under 15 minutes",
+            iconEmoji = "⚡",
+            isUnlocked = true,
+            unlockedDate = "3 days ago"
+        ),
+        ChefBadge(
+            id = "badge_flavor_architect",
+            title = "Taste DNA Master",
+            description = "Trained Mealio with 10+ personalized flavor memories",
+            iconEmoji = "🧬",
+            isUnlocked = true,
+            unlockedDate = "Yesterday"
+        ),
+        ChefBadge(
+            id = "badge_alchemist",
+            title = "Culinary Alchemist",
+            description = "Reach Level 4 by earning 1000 XP",
+            iconEmoji = "👑",
+            isUnlocked = false
+        ),
+        ChefBadge(
+            id = "badge_hundred_dollar",
+            title = "$100 Saved Club",
+            description = "Save $100 on groceries with zero-waste cooking",
+            iconEmoji = "💰",
+            isUnlocked = false
+        )
+    )
+)
+
+

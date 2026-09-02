@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.auth.AuthManager
+import com.example.data.ai.vision.*
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
 import com.example.data.repository.KitchenRepository
@@ -80,6 +81,16 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     private val _currentTab = MutableStateFlow(MainTab.HOME)
     val currentTab: StateFlow<MainTab> = _currentTab.asStateFlow()
 
+    // Human Psychology & Habit Formation State (Streaks, XP, Quests, Mystery Drops)
+    private val _psychologyState = MutableStateFlow(KitchenPsychologyState())
+    val psychologyState: StateFlow<KitchenPsychologyState> = _psychologyState.asStateFlow()
+
+    private val _dopamineCelebrationMessage = MutableStateFlow<String?>(null)
+    val dopamineCelebrationMessage: StateFlow<String?> = _dopamineCelebrationMessage.asStateFlow()
+
+    private val _showMysteryDropDialog = MutableStateFlow(false)
+    val showMysteryDropDialog: StateFlow<Boolean> = _showMysteryDropDialog.asStateFlow()
+
     // Inventory & Data Flows
     val activeInventory: StateFlow<List<InventoryItem>> = repository.activeInventory
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -113,7 +124,7 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
 
     private var timerJob: Job? = null
 
-    // Scan State
+    // Scan & Vision Image Analysis State
     private val _scanPreset = MutableStateFlow("Full Fridge Scan")
     val scanPreset: StateFlow<String> = _scanPreset.asStateFlow()
 
@@ -122,6 +133,15 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _activeScanTargetMode = MutableStateFlow(ScanTargetMode.BARCODE)
+    val activeScanTargetMode: StateFlow<ScanTargetMode> = _activeScanTargetMode.asStateFlow()
+
+    private val _imageAnalysisResult = MutableStateFlow<VisionImageAnalysisResult?>(null)
+    val imageAnalysisResult: StateFlow<VisionImageAnalysisResult?> = _imageAnalysisResult.asStateFlow()
+
+    private val _isAnalyzingImage = MutableStateFlow(false)
+    val isAnalyzingImage: StateFlow<Boolean> = _isAnalyzingImage.asStateFlow()
 
     // Ask Mealio Chat State
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
@@ -145,6 +165,12 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
 
     private val _isGeneratingRecipes = MutableStateFlow(false)
     val isGeneratingRecipes: StateFlow<Boolean> = _isGeneratingRecipes.asStateFlow()
+
+    private val _showRecipeSuggestionDialog = MutableStateFlow(false)
+    val showRecipeSuggestionDialog: StateFlow<Boolean> = _showRecipeSuggestionDialog.asStateFlow()
+
+    private val _lastGeneratedAiRecipes = MutableStateFlow<List<Recipe>>(emptyList())
+    val lastGeneratedAiRecipes: StateFlow<List<Recipe>> = _lastGeneratedAiRecipes.asStateFlow()
 
     // Autonomous Meal Plan State
     private val _autonomousMealPlan = MutableStateFlow<AutonomousMealPlan?>(null)
@@ -351,6 +377,97 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
         runFridgeScan(preset)
     }
 
+    fun setScanTargetMode(mode: ScanTargetMode) {
+        _activeScanTargetMode.value = mode
+    }
+
+    fun scanBarcodeOrLabel(
+        mode: ScanTargetMode = _activeScanTargetMode.value,
+        barcodeInput: String? = null,
+        onResult: (VisionImageAnalysisResult) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _isAnalyzingImage.value = true
+            _activeScanTargetMode.value = mode
+            try {
+                val result = repository.analyzeImageWithVisionHandler(
+                    mode = mode,
+                    barcodeInput = barcodeInput
+                )
+                _imageAnalysisResult.value = result
+                onResult(result)
+            } catch (e: Exception) {
+                // Fallback handling
+            } finally {
+                _isAnalyzingImage.value = false
+            }
+        }
+    }
+
+    fun addScannedBarcodeToInventory(
+        barcodeProduct: ScannedBarcodeProduct,
+        customQuantity: Double? = null,
+        location: String = if (barcodeProduct.category == IngredientCategory.PANTRY_GRAINS || barcodeProduct.category == IngredientCategory.CONDIMENTS_SPICES) "Pantry" else "Fridge",
+        onSuccess: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val dayMs = 24 * 60 * 60 * 1000L
+            val item = InventoryItem(
+                name = barcodeProduct.productName,
+                category = barcodeProduct.category,
+                quantity = customQuantity ?: barcodeProduct.suggestedQuantity,
+                unit = barcodeProduct.unit,
+                state = FoodState.STORED,
+                expiryTimestamp = now + (barcodeProduct.estimatedShelfLifeDays * dayMs),
+                location = location,
+                notes = "Scanned Barcode: ${barcodeProduct.barcode} (${barcodeProduct.brand})",
+                estimatedPriceDollars = when (barcodeProduct.category) {
+                    IngredientCategory.PROTEINS -> 8.50
+                    IngredientCategory.DAIRY_EGGS -> 4.50
+                    IngredientCategory.PRODUCE -> 3.20
+                    else -> 3.99
+                }
+            )
+            repository.addInventoryItem(item)
+            _imageAnalysisResult.value = null
+            refreshAutonomousMealPlan()
+            onSuccess()
+        }
+    }
+
+    fun addScannedLabelToInventory(
+        labelResult: ScannedLabelOcrResult,
+        quantity: Double = 1.0,
+        unit: String = "pcs",
+        location: String = if (labelResult.category == IngredientCategory.PANTRY_GRAINS || labelResult.category == IngredientCategory.CONDIMENTS_SPICES) "Pantry" else "Fridge",
+        onSuccess: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val dayMs = 24 * 60 * 60 * 1000L
+            val item = InventoryItem(
+                name = labelResult.detectedProductName,
+                category = labelResult.category,
+                quantity = quantity,
+                unit = unit,
+                state = FoodState.STORED,
+                expiryTimestamp = now + (labelResult.calculatedShelfLifeDays * dayMs),
+                location = location,
+                notes = "OCR Label Scan (${labelResult.detectedExpiryDate ?: "est. ${labelResult.calculatedShelfLifeDays}d"})",
+                estimatedPriceDollars = 3.50
+            )
+            repository.addInventoryItem(item)
+            _imageAnalysisResult.value = null
+            refreshAutonomousMealPlan()
+            onSuccess()
+        }
+    }
+
+    fun clearImageAnalysisResult() {
+        _imageAnalysisResult.value = null
+    }
+
     fun runFridgeScan(query: String) {
         viewModelScope.launch {
             _isScanning.value = true
@@ -451,7 +568,7 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
                 InventoryItem(name = "Organic Whole Milk", category = IngredientCategory.DAIRY_EGGS, quantity = 1.0, unit = "gallon", state = FoodState.STORED, expiryTimestamp = now + (3 * dayMs), location = "Fridge", notes = "Fresh dairy", estimatedPriceDollars = 4.29),
                 InventoryItem(name = "Baby Spinach", category = IngredientCategory.PRODUCE, quantity = 1.0, unit = "box", state = FoodState.STORED, expiryTimestamp = now + (2 * dayMs), location = "Fridge", notes = "Expiring soon", estimatedPriceDollars = 3.99),
                 InventoryItem(name = "Free-Range Large Eggs", category = IngredientCategory.DAIRY_EGGS, quantity = 12.0, unit = "count", state = FoodState.STORED, expiryTimestamp = now + (8 * dayMs), location = "Fridge", notes = "Fresh", estimatedPriceDollars = 4.50),
-                InventoryItem(name = "Boneless Chicken Breast", category = IngredientCategory.MEAT_SEAFOOD, quantity = 1.5, unit = "lbs", state = FoodState.STORED, expiryTimestamp = now + (2 * dayMs), location = "Fridge", notes = "Use soon", estimatedPriceDollars = 8.50),
+                InventoryItem(name = "Boneless Chicken Breast", category = IngredientCategory.PROTEINS, quantity = 1.5, unit = "lbs", state = FoodState.STORED, expiryTimestamp = now + (2 * dayMs), location = "Fridge", notes = "Use soon", estimatedPriceDollars = 8.50),
                 InventoryItem(name = "Jasmine Rice", category = IngredientCategory.PANTRY_GRAINS, quantity = 2.0, unit = "lbs", state = FoodState.STORED, expiryTimestamp = now + (90 * dayMs), location = "Pantry", notes = "Staple grain", estimatedPriceDollars = 3.20),
                 InventoryItem(name = "Extra Virgin Olive Oil", category = IngredientCategory.CONDIMENTS_SPICES, quantity = 1.0, unit = "bottle", state = FoodState.STORED, expiryTimestamp = now + (180 * dayMs), location = "Pantry", notes = "Cooking base", estimatedPriceDollars = 9.99),
                 InventoryItem(name = "Roma Tomatoes", category = IngredientCategory.PRODUCE, quantity = 4.0, unit = "count", state = FoodState.STORED, expiryTimestamp = now + (4 * dayMs), location = "Fridge", notes = "Fresh", estimatedPriceDollars = 2.80),
@@ -463,11 +580,23 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // --- Recipe Details & Cooking Companion ---
+    fun openRecipeSuggestionDialog() {
+        _showRecipeSuggestionDialog.value = true
+        if (_lastGeneratedAiRecipes.value.isEmpty()) {
+            generateAiRecipes(null)
+        }
+    }
+
+    fun closeRecipeSuggestionDialog() {
+        _showRecipeSuggestionDialog.value = false
+    }
+
     fun generateAiRecipes(customQuery: String? = null) {
         viewModelScope.launch {
             _isGeneratingRecipes.value = true
             try {
-                repository.getAdaptiveRecipes(customQuery)
+                val results = repository.getAdaptiveRecipes(customQuery)
+                _lastGeneratedAiRecipes.value = results
             } catch (e: Exception) {
                 // Handled gracefully in repository fallback
             } finally {
@@ -603,19 +732,129 @@ class KitchenViewModel(application: Application) : AndroidViewModel(application)
     fun finishCookingSession(rating: Int, feedback: String) {
         val recipe = _activeCookingRecipe.value ?: return
         viewModelScope.launch {
+            val dollarsSaved = (recipe.wasteReductionScore * 0.8).coerceAtLeast(3.50)
             val session = CookingSession(
                 recipeId = recipe.id,
                 recipeTitle = recipe.title,
                 rating = rating,
                 feedbackNote = feedback,
                 substitutionsUsed = recipe.substitutions.map { "${it.originalIngredient} -> ${it.substituteIngredient}" },
-                wasteSavedDollars = (recipe.wasteReductionScore * 0.8)
+                wasteSavedDollars = dollarsSaved
             )
             repository.completeCookingSession(session)
+            
+            // Psychology Reward: Award XP, update Dollars Saved, update streak, complete Quest
+            awardXp(120, "Cooked ${recipe.title}")
+            recordSavings(dollarsSaved, 0.6)
+            completeQuest("quest_rescue")
+            triggerDopamineCelebration("🎉 +120 XP! You rescued \$$dollarsSaved of food!")
+
             ttsHelper.speak("Cooking session finished! Amazing job Chef. Saved to your Kitchen Memory.")
             _activeCookingRecipe.value = null
             _currentTab.value = MainTab.HOME
         }
+    }
+
+    // --- Psychology & Habit Triggers (Streaks, Quests, Mystery Drops, XP, Savings) ---
+    fun openMysteryDropDialog() {
+        _showMysteryDropDialog.value = true
+    }
+
+    fun dismissMysteryDropDialog() {
+        _showMysteryDropDialog.value = false
+    }
+
+    fun claimMysteryDrop() {
+        val current = _psychologyState.value
+        val drop = current.mysteryDrop
+        if (!drop.isOpened) {
+            val updatedDrop = drop.copy(isOpened = true)
+            val newXp = current.currentXp + drop.bonusXp
+            val newQuests = current.dailyQuests.map {
+                if (it.id == "quest_mystery") it.copy(isCompleted = true, progress = 1.0f) else it
+            }
+            _psychologyState.value = current.copy(
+                mysteryDrop = updatedDrop,
+                currentXp = newXp,
+                dailyQuests = newQuests,
+                kitchenIqScore = (current.kitchenIqScore + 3).coerceAtMost(100)
+            )
+            triggerDopamineCelebration("🎁 Mystery Unlocked! +${drop.bonusXp} XP & Secret Culinary Hack!")
+        }
+    }
+
+    fun completeQuest(questId: String) {
+        val current = _psychologyState.value
+        val quest = current.dailyQuests.find { it.id == questId }
+        if (quest != null && !quest.isCompleted) {
+            val updatedQuests = current.dailyQuests.map {
+                if (it.id == questId) it.copy(isCompleted = true, progress = 1.0f) else it
+            }
+            val newXp = current.currentXp + quest.xpReward
+            val newIq = (current.kitchenIqScore + 4).coerceAtMost(100)
+            _psychologyState.value = current.copy(
+                dailyQuests = updatedQuests,
+                currentXp = newXp,
+                kitchenIqScore = newIq
+            )
+            triggerDopamineCelebration("⚡ Quest Complete: ${quest.title}! +${quest.xpReward} XP")
+        }
+    }
+
+    fun awardXp(amount: Int, reason: String) {
+        val current = _psychologyState.value
+        var newXp = current.currentXp + amount
+        var tier = current.chefTierName
+        var tierLevel = current.chefTierLevel
+        var maxForNext = current.xpForNextLevel
+
+        if (newXp >= current.xpForNextLevel) {
+            tierLevel += 1
+            tier = when (tierLevel) {
+                1 -> "Level 1: Kitchen Novice"
+                2 -> "Level 2: Pantry Tactician"
+                3 -> "Level 3: Zero-Waste Master"
+                4 -> "Level 4: Culinary Alchemist"
+                else -> "Level 5: Executive AI Maestro"
+            }
+            maxForNext = tierLevel * 500
+            triggerDopamineCelebration("👑 LEVEL UP! You are now $tier!")
+        }
+
+        _psychologyState.value = current.copy(
+            currentXp = newXp,
+            chefTierName = tier,
+            chefTierLevel = tierLevel,
+            xpForNextLevel = maxForNext,
+            kitchenIqScore = (current.kitchenIqScore + 2).coerceAtMost(100)
+        )
+    }
+
+    fun recordSavings(dollars: Double, kg: Double) {
+        val current = _psychologyState.value
+        _psychologyState.value = current.copy(
+            totalMoneySavedDollars = current.totalMoneySavedDollars + dollars,
+            totalFoodRescuedKg = current.totalFoodRescuedKg + kg,
+            mealsCookedTotal = current.mealsCookedTotal + 1
+        )
+    }
+
+    fun protectStreak() {
+        val current = _psychologyState.value
+        if (current.streakShieldsRemaining > 0) {
+            _psychologyState.value = current.copy(
+                streakShieldsRemaining = current.streakShieldsRemaining - 1
+            )
+            triggerDopamineCelebration("🛡️ Streak Freeze Activated! Your 5-day streak is safely protected.")
+        }
+    }
+
+    fun triggerDopamineCelebration(message: String) {
+        _dopamineCelebrationMessage.value = message
+    }
+
+    fun dismissCelebration() {
+        _dopamineCelebrationMessage.value = null
     }
 
     fun exitCookingSession() {

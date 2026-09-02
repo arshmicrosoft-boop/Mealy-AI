@@ -1,6 +1,7 @@
 package com.example.data.ai
 
 import com.example.BuildConfig
+import com.example.data.ai.recipe.RecipeSuggestionEngine
 import com.example.data.model.*
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -41,7 +42,8 @@ data class GeminiGenerateRequest(
 
 open class GeminiAIProvider(
     private val geminiService: GeminiService = GeminiService(),
-    private val fallbackProvider: AIProvider = LocalRuleBasedAIProvider()
+    private val fallbackProvider: AIProvider = LocalRuleBasedAIProvider(),
+    private val recipeSuggestionEngine: RecipeSuggestionEngine = RecipeSuggestionEngine(geminiService)
 ) : AIProvider {
 
     override suspend fun analyzeFridgeImage(imageDescriptionOrLabels: String): List<DetectedFoodItem> {
@@ -77,67 +79,20 @@ open class GeminiAIProvider(
     }
 
     override suspend fun getRecipeRecommendations(ingredients: List<String>): List<Recipe> {
-        if (!geminiService.isApiKeyConfigured()) {
-            return fallbackProvider.getRecipeRecommendations(ingredients)
-        }
-
-        return withContext(Dispatchers.IO) {
-            try {
-                val ingredientsList = ingredients.joinToString(", ")
-                val prompt = """
-                    You are Mealio AI Kitchen Intelligence.
-                    Based on these ingredients available: $ingredientsList
-                    Generate delicious recipe recommendations prioritizing minimizing waste and matching the provided ingredients.
-                """.trimIndent()
-                geminiService.generateContent(prompt)
-                fallbackProvider.getRecipeRecommendations(ingredients)
-            } catch (e: Exception) {
-                fallbackProvider.getRecipeRecommendations(ingredients)
-            }
-        }
+        val dummyContext = KitchenContext(
+            inventory = ingredients.map { InventoryItem(name = it, category = IngredientCategory.OTHER, quantity = 1.0, unit = "unit", expiryTimestamp = System.currentTimeMillis() + 86400000L * 5) },
+            expiringItems = emptyList(),
+            preferences = UserPreferences(),
+            memories = emptyList()
+        )
+        return recipeSuggestionEngine.generateRecipeSuggestions(dummyContext, null)
     }
 
     override suspend fun generateRecipeRecommendations(
         context: KitchenContext,
         customQuery: String?
     ): List<Recipe> {
-        if (!geminiService.isApiKeyConfigured()) {
-            return fallbackProvider.generateRecipeRecommendations(context, customQuery)
-        }
-
-        return withContext(Dispatchers.IO) {
-            try {
-                val inventoryText = context.inventory.joinToString(", ") { "${it.name} (state: ${it.state.label}, expires in ${it.daysUntilExpiry()}d)" }
-                val expiringText = context.expiringItems.joinToString(", ") { it.name }
-                val dietaryConstraints = buildList {
-                    if (context.preferences.isVegan) add("STRICTLY VEGAN (100% plant-based, no meat, poultry, fish, dairy, eggs, honey)")
-                    if (context.preferences.isGlutenFree) add("STRICTLY GLUTEN-FREE (no wheat, gluten, barley, rye)")
-                    if (context.preferences.isDairyFree) add("DAIRY-FREE (no milk, butter, cheese, cream, yogurt)")
-                    if (context.preferences.isKeto) add("KETO / ULTRA LOW-CARB (<15g net carbs per serving)")
-                    if (context.preferences.isVegetarian && !context.preferences.isVegan) add("VEGETARIAN (no meat/poultry/fish, eggs/dairy allowed)")
-                    if (context.preferences.isSpicy) add("SPICY / HEAT-FORWARD: Infuse bold warmth with chili, peppers, or spices (${context.preferences.spicePreference})")
-                    else add("MILD / NON-SPICY: Minimal to no heat")
-                }.joinToString("; ")
-
-                val prompt = """
-                    You are Mealio AI Kitchen Intelligence.
-                    Inventory: $inventoryText
-                    Expiring soon items (MUST PRIORITIZE): $expiringText
-                    Dietary Requirements & Toggles: $dietaryConstraints
-                    User Preferences: Cuisines: ${context.preferences.favoriteCuisines.joinToString()}, Spice: ${context.preferences.spicePreference}, Goal: ${context.preferences.dietaryGoal}, Max Time: ${context.preferences.maxCookingTimeMin} mins, Disliked: ${context.preferences.dislikedIngredients.joinToString()}
-                    Query: ${customQuery ?: "What can I cook right now?"}
-                    
-                    Generate 2 personalized adaptive recipes adhering strictly to the dietary requirements and inventory.
-                    Use our base ranking weights (Ingredient match 35%, Preference match 25%, Time 20%, Waste reduction 15%, Variety 5%).
-                    Explain substitutions if an ingredient isn't available.
-                """.trimIndent()
-
-                // If Gemini succeeds or times out, safely fallback or augment
-                fallbackProvider.generateRecipeRecommendations(context, customQuery)
-            } catch (e: Exception) {
-                fallbackProvider.generateRecipeRecommendations(context, customQuery)
-            }
-        }
+        return recipeSuggestionEngine.generateRecipeSuggestions(context, customQuery)
     }
 
     override suspend fun getSubstitutionAdvice(

@@ -31,9 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.model.InventoryItem
 import com.example.data.model.Recipe
-import com.example.ui.components.CategoryIcon
-import com.example.ui.components.ExpiryUrgencyChip
-import com.example.ui.components.MatchPercentBadge
+import com.example.ui.components.*
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
 import com.example.ui.viewmodel.MainTab
@@ -51,137 +49,548 @@ fun HomeScreen(
     val isPlanningMeals by viewModel.isPlanningMeals.collectAsState()
 
     val userProfile by viewModel.userProfile.collectAsState()
+    val psychologyState by viewModel.psychologyState.collectAsState()
+    val dopamineMessage by viewModel.dopamineCelebrationMessage.collectAsState()
+    val showMysteryDialog by viewModel.showMysteryDropDialog.collectAsState()
+
     val expiringItems = inventory.filter { it.isExpiringSoon() }
     val totalEstimatedValue = inventory.sumOf { it.estimatedPriceDollars }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .testTag("home_screen"),
-        contentPadding = PaddingValues(bottom = 96.dp)
-    ) {
-        // 1. Top Header & Hero Card
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(230.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.mealy_hero_banner_1787938905468),
-                    contentDescription = "Kitchen ingredients background",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .testTag("home_screen"),
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
+            // 1. Top Header & Hero Card
+            item {
+                val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                val timeGreeting = when {
+                    currentHour < 12 -> "Good morning"
+                    currentHour < 17 -> "Good afternoon"
+                    else -> "Good evening"
+                }
+                val chefName = if (userProfile.displayName.isNotBlank()) userProfile.displayName.substringBefore(" ") else "Arsh"
+
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.35f),
-                                    Color.Black.copy(alpha = 0.75f)
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.mealy_hero_banner_1787938905468),
+                        contentDescription = "Kitchen ingredients background",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(310.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(310.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.45f),
+                                        Color.Black.copy(alpha = 0.88f)
+                                    )
                                 )
                             )
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        // Top App Brand Bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = SageGreenPrimary,
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = "MEALIO AI",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Black,
+                                            letterSpacing = 1.sp,
+                                            color = Color.White
+                                        )
+                                    )
+                                    Text(
+                                        text = "Autonomous Kitchen Companion",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                    )
+                                }
+                            }
+                            Surface(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.clickable { viewModel.selectTab(MainTab.PROFILE) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Psychology,
+                                        contentDescription = null,
+                                        tint = AmberContainer,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "${memories.size} Memories",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Dynamic Greeting & Mission
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "$timeGreeting, $chefName",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                            Text(
+                                text = "Your kitchen is waiting.",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = SageContainer,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                text = "Let's discover what you can make.",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color.White.copy(alpha = 0.88f)
+                                )
+                            )
+                        }
+
+                        // Main Primary CTA: Scan My Kitchen
+                        Button(
+                            onClick = { viewModel.selectTab(MainTab.SCAN) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .testTag("hero_scan_my_kitchen_button"),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SageGreenPrimary,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Scan My Kitchen 📸",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // --- 7 HUMAN PSYCHOLOGY HABIT & RETENTION ENGINE ---
+            // 1. Streak & Loss Aversion Protection Card
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    StreakProtectionCard(
+                        state = psychologyState,
+                        onProtectStreak = { viewModel.protectStreak() }
+                    )
+                }
+            }
+
+            // 2. Variable Reward: Daily Chef Mystery Drop
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    MysteryChefDropBanner(
+                        drop = psychologyState.mysteryDrop,
+                        onOpenClick = { viewModel.openMysteryDropDialog() }
+                    )
+                }
+            }
+
+            // 3. Endowed Progress & Zeigarnik Effect (Kitchen IQ & Daily Quests)
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    KitchenIqAndQuestsCard(
+                        state = psychologyState,
+                        onQuestClick = { quest ->
+                            when (quest.id) {
+                                "quest_scan" -> viewModel.selectTab(MainTab.SCAN)
+                                "quest_rescue" -> viewModel.openRecipeSuggestionDialog()
+                                "quest_mystery" -> viewModel.openMysteryDropDialog()
+                            }
+                        }
+                    )
+                }
+            }
+
+            // 4. Tangible Financial & Eco Impact Gratification Card
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    FinancialSavingsTrackerCard(state = psychologyState)
+                }
+            }
+
+            // 5. Chef Mastery Tier & Leveling System
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    ChefMasteryLevelCard(state = psychologyState)
+                }
+            }
+
+            // 6. IKEA Effect & Sunk Cost Taste DNA Card
+            item {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    TasteDnaInvestmentCard(state = psychologyState)
+                }
+            }
+
+            // 7. Social Proof & Scarcity Urgency Card
+            if (expiringItems.isNotEmpty()) {
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        SocialProofUrgencyCard(
+                            state = psychologyState,
+                            onRescueExpiringClick = { viewModel.openRecipeSuggestionDialog() }
                         )
+                    }
+                }
+            }
+
+        // 2. Preview Intelligence Cards (Expiring Soon, AI Suggestion, Cooking Memory)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Live Intelligence Preview",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 )
-                Column(
+
+                // Preview Card 1: Expiring Soon
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                        .fillMaxWidth()
+                        .clickable { viewModel.selectTab(MainTab.INVENTORY) }
+                        .testTag("preview_expiring_soon_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = ExpiringRedContainer.copy(alpha = 0.5f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, ExpiringRed.copy(alpha = 0.35f))
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = ExpiringRed,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("🥬", fontSize = 18.sp)
+                                }
+                            }
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Spinach",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = ExpiringRed.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "Expiring Soon",
+                                            color = ExpiringRed,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Expires tomorrow • Tap to rescue in a quick recipe",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = ExpiringRed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Preview Card 2: AI Suggestion
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.openRecipeSuggestionDialog() }
+                        .testTag("preview_ai_suggestion_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = SageContainer.copy(alpha = 0.6f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SageGreenPrimary.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = SageGreenPrimary,
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.AutoAwesome,
                                         contentDescription = null,
                                         tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Tonight: Spicy Chicken Bowl",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = SageGreenPrimary.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "85% match",
+                                            color = SageGreenPrimary,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = "Uses 85% of your ingredients • 20 mins prep",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Preview Card 3: Cooking Memory
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.selectTab(MainTab.PROFILE) }
+                        .testTag("preview_cooking_memory_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = AmberContainer.copy(alpha = 0.35f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AmberContainer.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = AmberContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Psychology,
+                                        contentDescription = null,
+                                        tint = ToastedAmberSecondary,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
                             Column {
                                 Text(
-                                    text = "MEALIO AI",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 1.sp,
-                                        color = Color.White
-                                    )
+                                    text = "Cooking Memory",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
-                                    text = "Autonomous Kitchen & Meal Planner",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Color.White.copy(alpha = 0.8f)
+                                    text = "Mealio is learning your taste • continuous taste profile active",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp
                                     )
                                 )
                             }
                         }
-                        Surface(
-                            color = Color.White.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.clickable { viewModel.selectTab(MainTab.PROFILE) }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Psychology,
-                                    contentDescription = null,
-                                    tint = AmberContainer,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "${memories.size} Memories",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                        }
-                    }
-
-                    Column(modifier = Modifier.padding(bottom = 6.dp)) {
-                        Text(
-                            text = if (userProfile.displayName.isNotBlank()) "Hi ${userProfile.displayName}, what would you like to cook?" else "What would you like to cook today?",
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        Text(
-                            text = "Tracking ${inventory.size} items in inventory • Zero-waste meal planning active.",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = ToastedAmberSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
         }
 
-        // 2. Ask Mealio Prompt Trigger
+
+        // 2. Recipe Suggestion Engine & Ask Mealio Triggers
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable { viewModel.openRecipeSuggestionDialog() }
+                    .testTag("home_recipe_suggestion_engine_card"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SageContainer.copy(alpha = 0.7f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, SageGreenPrimary.copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = SageGreenPrimary,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "Gemini Recipe Suggestion Engine",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = OnSageContainer)
+                            )
+                            Text(
+                                text = "Cross-references pantry, expiring items & diet",
+                                style = MaterialTheme.typography.bodySmall.copy(color = OnSageContainer.copy(alpha = 0.85f), fontSize = 12.sp)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = SageGreenPrimary
+                    ) {
+                        Text(
+                            text = "Suggest",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clickable { viewModel.selectTab(MainTab.ASK_MEALY) }
                     .testTag("ask_mealio_input_card"),
                 shape = RoundedCornerShape(16.dp),
@@ -667,6 +1076,26 @@ fun HomeScreen(
             }
         }
     }
+
+    // Floating Dopamine Celebration Banner
+    DopamineCelebrationBanner(
+        message = dopamineMessage,
+        onDismiss = { viewModel.dismissCelebration() },
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(top = 8.dp)
+    )
+
+    // Variable Reward: Mystery Drop Unboxing Dialog
+    if (showMysteryDialog) {
+        MysteryChefDropDialog(
+            drop = psychologyState.mysteryDrop,
+            onClaim = { viewModel.claimMysteryDrop() },
+            onDismiss = { viewModel.dismissMysteryDropDialog() }
+        )
+    }
+}
 }
 
 @Composable

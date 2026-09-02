@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.ai.AIProvider
 import com.example.data.ai.GeminiAIProvider
 import com.example.data.ai.KitchenContext
+import com.example.data.ai.vision.*
 import com.example.data.local.AppDatabase
 import com.example.data.model.*
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,8 @@ import kotlinx.coroutines.flow.firstOrNull
 
 class KitchenRepository(
     private val database: AppDatabase,
-    private val aiProvider: AIProvider = GeminiAIProvider()
+    private val aiProvider: AIProvider = GeminiAIProvider(),
+    val imageAnalysisHandler: ImageAnalysisHandler = MockImageAnalysisHandler()
 ) {
     val activeInventory: Flow<List<InventoryItem>> = database.inventoryDao().getActiveInventory()
     val allInventory: Flow<List<InventoryItem>> = database.inventoryDao().getAllInventory()
@@ -160,6 +162,18 @@ class KitchenRepository(
 
     suspend fun scanFridgeVision(imageDescOrLabels: String): List<DetectedFoodItem> {
         return aiProvider.analyzeFridgeImage(imageDescOrLabels)
+    }
+
+    suspend fun analyzeImageWithVisionHandler(
+        imageBytes: ByteArray? = null,
+        mode: ScanTargetMode = ScanTargetMode.BARCODE,
+        barcodeInput: String? = null
+    ): VisionImageAnalysisResult {
+        return imageAnalysisHandler.analyzeImageFrame(imageBytes, mode, barcodeInput)
+    }
+
+    suspend fun lookupBarcodeProduct(barcode: String): ScannedBarcodeProduct? {
+        return imageAnalysisHandler.lookupBarcode(barcode)
     }
 
     suspend fun getAdaptiveRecipes(query: String? = null): List<Recipe> {

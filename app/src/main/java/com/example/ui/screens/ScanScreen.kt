@@ -120,9 +120,14 @@ fun ScanScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // 1. Header
+            // 1. Header & AI Guidance
             item {
-                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -131,7 +136,7 @@ fun ScanScreen(
                         Column {
                             Text(
                                 text = "AI Fridge Vision",
-                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold)
                             )
                             Text(
                                 text = "Scan food to build inventory automatically",
@@ -152,6 +157,80 @@ fun ScanScreen(
                                     tint = SageGreenPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
+                            }
+                        }
+                    }
+
+                    // Prompt Guidance Banner
+                    Surface(
+                        color = SageContainer.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SageGreenPrimary.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = SageGreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Scan your fridge — I'll identify your ingredients automatically.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = OnSageContainer
+                                )
+                            )
+                        }
+                    }
+
+                    // Instant AI Meal Discovery Banner when items detected
+                    if (detectedItems.isNotEmpty()) {
+                        Surface(
+                            color = Color(0xFF1E3A2F),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SageGreenPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "✨ I found 12 meals you can make.",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    )
+                                    Text(
+                                        text = "Based on detected Chicken, Eggs, Spinach & Rice",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                    )
+                                }
+                                Button(
+                                    onClick = { viewModel.openRecipeSuggestionDialog() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SageGreenPrimary),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "Explore",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    )
+                                }
                             }
                         }
                     }

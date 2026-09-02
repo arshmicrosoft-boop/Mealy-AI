@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.KitchenMemoryLog
 import com.example.data.model.UserPreferences
+import com.example.ui.components.*
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
 import com.example.ui.viewmodel.MainTab
@@ -36,6 +37,7 @@ fun ProfileAndMemoryScreen(
     val preferences by viewModel.userPreferences.collectAsState()
     val memories by viewModel.kitchenMemories.collectAsState()
     val cookingSessions by viewModel.cookingSessions.collectAsState()
+    val psychologyState by viewModel.psychologyState.collectAsState()
     var showAddMemoryDialog by remember { mutableStateOf(false) }
 
     val spiceOptions = listOf("Mild", "Medium", "Spicy", "Extra Hot")
@@ -64,7 +66,7 @@ fun ProfileAndMemoryScreen(
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "Your personal chef identity and taste memory",
+                        text = "Your personal chef identity, stats, and taste memory",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -179,6 +181,27 @@ fun ProfileAndMemoryScreen(
                         Text("Sign Out", style = MaterialTheme.typography.labelSmall)
                     }
                 }
+            }
+        }
+
+        // Mastery Level & Badges
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                ChefMasteryLevelCard(state = psychologyState)
+            }
+        }
+
+        // Financial & Eco Savings
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                FinancialSavingsTrackerCard(state = psychologyState)
+            }
+        }
+
+        // Taste DNA Investment Card
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                TasteDnaInvestmentCard(state = psychologyState)
             }
         }
 

@@ -26,6 +26,7 @@ import com.example.data.model.Recipe
 import com.example.data.model.SubstitutionAdvice
 import com.example.ui.components.LoadingScreen
 import com.example.ui.components.MatchPercentBadge
+import com.example.ui.components.RecipeSuggestionDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.KitchenViewModel
 
@@ -35,9 +36,13 @@ fun RecipesScreen(
     modifier: Modifier = Modifier
 ) {
     val recipes by viewModel.allRecipes.collectAsState()
+    val activeInventory by viewModel.activeInventory.collectAsState()
+    val userPreferences by viewModel.userPreferences.collectAsState()
     val selectedRecipe by viewModel.selectedRecipe.collectAsState()
     val cuisineFilter by viewModel.recipeCuisineFilter.collectAsState()
     val isGeneratingRecipes by viewModel.isGeneratingRecipes.collectAsState()
+    val showSuggestionDialog by viewModel.showRecipeSuggestionDialog.collectAsState()
+    val generatedRecipes by viewModel.lastGeneratedAiRecipes.collectAsState()
 
     val cuisineOptions = listOf("All", "Mediterranean", "Asian / Stir-Fry", "Quick (<20m)", "High Protein")
 
@@ -51,7 +56,26 @@ fun RecipesScreen(
         }
     }
 
-    if (isGeneratingRecipes) {
+    if (showSuggestionDialog) {
+        RecipeSuggestionDialog(
+            inventory = activeInventory,
+            preferences = userPreferences,
+            isGenerating = isGeneratingRecipes,
+            generatedRecipes = generatedRecipes,
+            onDismiss = { viewModel.closeRecipeSuggestionDialog() },
+            onGenerate = { query -> viewModel.generateAiRecipes(query) },
+            onSelectRecipe = { recipe ->
+                viewModel.closeRecipeSuggestionDialog()
+                viewModel.viewRecipeDetails(recipe)
+            },
+            onStartCooking = { recipe ->
+                viewModel.closeRecipeSuggestionDialog()
+                viewModel.startCookingSession(recipe)
+            }
+        )
+    }
+
+    if (isGeneratingRecipes && !showSuggestionDialog) {
         LoadingScreen(
             modifier = modifier,
             title = "Chef AI is Cooking Up Recipes...",
@@ -103,7 +127,7 @@ fun RecipesScreen(
                         )
                     }
                     FilledTonalButton(
-                        onClick = { viewModel.generateAiRecipes() },
+                        onClick = { viewModel.openRecipeSuggestionDialog() },
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = SageContainer,
                             contentColor = SageGreenPrimary
@@ -113,17 +137,77 @@ fun RecipesScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = "AI Generate",
+                            contentDescription = "Recipe Suggestion Engine",
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("AI Generate", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("AI Suggest", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     }
                 }
             }
 
-            // 2. Filter Pills
+            // 2. Gemini Recipe Suggestion Engine Hero Card
             item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { viewModel.openRecipeSuggestionDialog() }
+                        .testTag("recipe_suggestion_engine_card"),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = SageContainer.copy(alpha = 0.6f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SageGreenPrimary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = SageGreenPrimary,
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "Recipe Suggestion Engine",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    text = "Cross-references live inventory with dietary constraints & expiring items",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = SageGreenPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 3. Filter Pills
+            item {
+                Spacer(modifier = Modifier.height(10.dp))
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -142,10 +226,10 @@ fun RecipesScreen(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // 3. Recipes List
+            // 4. Recipes List
             if (filteredRecipes.isEmpty()) {
                 item {
                     Box(
